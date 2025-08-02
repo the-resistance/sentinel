@@ -1,55 +1,60 @@
 #!/bin/bash
-# setup_sentinel.sh — v1.4.0 — Full protocol & DB support — 2025-08-02
+# setup_sentinel.sh v1.2.0
+# Fully automated setup for the Sentinel RF Sweep System (Kali Linux)
 
-echo "[+] Updating packages..."
-sudo apt update && sudo apt install -y \
-  build-essential gcc make git \
-  libpcap-dev libhackrf-dev hackrf \
-  gnuradio gqrx-sdr gr-osmosdr \
-  aircrack-ng bluez bluetooth rfcat \
-  gpsd gpsd-clients inspectrum \
-  net-tools network-manager \
-  wireshark tshark sqlite3 libsqlite3-dev \
-  python3 python3-pip python3-scapy
+set -e
 
-echo "[+] Installing protocol tools via pip..."
-pip3 install --break-system-packages \
-  bleah killerbee scapy-radio
+SENTINEL_DIR="$HOME/sentinel"
+LOGFILE="$HOME/logs/setup.log"
+REPO_URL="https://github.com/the-resistance/sentinel.git"
 
-echo "[+] Cloning or updating repo..."
-REPO_DIR="/home/kali/sentinel"
+echo "[+] Logging setup to $LOGFILE"
+mkdir -p "$HOME/logs"
+exec > >(tee -a "$LOGFILE") 2>&1
 
-if [ ! -d "$REPO_DIR" ]; then
-  git clone https://github.com/the-resistance/sentinel.git "$REPO_DIR"
+echo "[+] Installing required packages..."
+sudo apt update
+sudo apt install -y \
+  build-essential libhackrf-dev libsqlite3-dev \
+  sqlite3 hackrf git make gcc
+
+echo "[+] Cloning or updating repository..."
+if [[ -d "$SENTINEL_DIR/.git" ]]; then
+  cd "$SENTINEL_DIR"
+  git pull
 else
-  cd "$REPO_DIR" && git pull
+  git clone "$REPO_URL" "$SENTINEL_DIR"
+  cd "$SENTINEL_DIR"
 fi
 
 echo "[+] Creating runtime directories..."
-mkdir -p "$REPO_DIR/logs"
-mkdir -p "$REPO_DIR/bin"
-mkdir -p "$REPO_DIR/db"
+mkdir -p "$SENTINEL_DIR/bin"
+mkdir -p "$SENTINEL_DIR/logs"
+mkdir -p "$SENTINEL_DIR/db"
+mkdir -p "$SENTINEL_DIR/captures"
+mkdir -p "$SENTINEL_DIR/data"
 
-echo "[+] Fixing script & binary permissions..."
-find "$REPO_DIR" -type f -name "*.sh" -exec chmod +x {} \;
-find "$REPO_DIR" -type f -name "*.py" -exec chmod +x {} \;
-chmod +x "$REPO_DIR/bin/sentinel"
+echo "[+] Fixing permissions..."
+chmod +x "$SENTINEL_DIR"/*.sh
+chmod +x "$SENTINEL_DIR/scripts/"*.sh || true
 
 echo "[+] Building project..."
-cd "$REPO_DIR"
-make clean && make
+make -C "$SENTINEL_DIR" clean
+make -C "$SENTINEL_DIR"
 
-echo "[+] Initializing SQLite signal_log.db..."
-sqlite3 "$REPO_DIR/db/signal_log.db" <<EOF
-CREATE TABLE IF NOT EXISTS signals (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    timestamp TEXT,
-    label TEXT,
-    freq INTEGER,
-    rssi INTEGER,
-    score INTEGER,
-    uuid TEXT
-);
-EOF
+if [[ ! -f "$SENTINEL_DIR/bin/sentinel" ]]; then
+  echo "[!] Build failed. Sentinel binary not found."
+  exit 1
+fi
 
-echo "[✓] Setup complete. Run: $REPO_DIR/bin/sentinel"
+echo "[+] Initializing SQLite DB..."
+if [[ ! -f "$SENTINEL_DIR/db/signal_log.db" ]]; then
+  sqlite3 "$SENTINEL_DIR/db/signal_log.db" "VACUUM;"
+  echo "[+] signal_log.db created."
+else
+  echo "[i] signal_log.db already exists."
+fi
+
+echo "[+] Setup complete."
+echo "[i] Run monitor with: $SENTINEL_DIR/run-monitor.sh"
+echo "[i] Binary: $SENTINEL_DIR/bin/sentinel"
