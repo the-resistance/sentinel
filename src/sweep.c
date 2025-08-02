@@ -1,103 +1,62 @@
-// sweep.c
-// HackRF RF sweep loop for rf-sentinel
-// Author: [You]
-// License: [Classified / Open as desired]
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <time.h>
+#include <inttypes.h>
 #include <hackrf.h>
 #include "sweep.h"
-#include "band_filter.h"
-#include "signal_map.h"
 #include "logger.h"
+#include "band_filter.h"
 
-#define MAX_BUFFER 262144
+extern band_range_t ignore_bands[], tactical_bands[];
+extern int ignore_count, tactical_count;
 
-static hackrf_device *device = NULL;
+static hackrf_device* dev = NULL;
 
-static int measure_signal(int *rssi_out) {
-    int8_t buffer[MAX_BUFFER];
-    int sum = 0;
-
-    int status = hackrf_start_rx(device, NULL, NULL);
-    if (status != HACKRF_SUCCESS) return -1;
-
-    usleep(1000); // brief wait
-
-    status = hackrf_set_amp_enable(device, 1);
-    if (status != HACKRF_SUCCESS) return -2;
-
-    status = hackrf_set_lna_gain(device, 40);
-    status |= hackrf_set_vga_gain(device, 20);
-    if (status != HACKRF_SUCCESS) return -3;
-
-    status = hackrf_start_rx(device, NULL, NULL);
-    if (status != HACKRF_SUCCESS) return -4;
-
-    status = hackrf_is_streaming(device);
-    if (status != HACKRF_TRUE) return -5;
-
-    // simulate signal read
-    for (int i = 0; i < MAX_BUFFER; i++) buffer[i] = rand() % 255 - 128;
-
-    for (int i = 0; i < MAX_BUFFER; i++) sum += abs(buffer[i]);
-    int avg = sum / MAX_BUFFER;
-
-    *rssi_out = -avg;  // crude proxy
+static int handle_callback(hackrf_transfer* transfer) {
+    // Stubbed — you could write IQ or RSSI analysis here
     return 0;
 }
 
-int sweep_run(const sweep_config_t *cfg, volatile int *keep_running) {
-    uint64_t freq = cfg->freq_start_hz;
-    uint64_t end = cfg->freq_end_hz;
-
+int run_sweep(const sweep_config_t *cfg) {
     if (hackrf_init() != HACKRF_SUCCESS) {
-        fprintf(stderr, "[X] hackrf_init failed\n");
+        fprintf(stderr, "[!] hackrf_init() failed.\n");
         return -1;
     }
 
-    if (hackrf_open(&device) != HACKRF_SUCCESS) {
-        fprintf(stderr, "[X] Failed to open HackRF device\n");
-        return -2;
+    if (hackrf_open(&dev) != HACKRF_SUCCESS) {
+        fprintf(stderr, "[!] hackrf_open() failed.\n");
+        return -1;
     }
 
-    printf("[*] Sweep initialized: %llu Hz → %llu Hz in %llu Hz steps\n",
-        cfg->freq_start_hz, cfg->freq_end_hz, cfg->step_hz);
+    printf("[*] HackRF initialized\n");
 
-    while (freq <= end && *keep_running) {
-        if (band_should_ignore(freq)) {
+    uint64_t freq = cfg->start_freq;
+    while (freq <= cfg->end_freq) {
+        if (in_any_band(freq, ignore_bands, ignore_count)) {
             freq += cfg->step_hz;
             continue;
         }
 
-        if (hackrf_set_freq(device, freq) != HACKRF_SUCCESS) {
-            fprintf(stderr, "[!] Frequency set failed at %llu Hz\n", freq);
-            freq += cfg->step_hz;
-            continue;
+        int r = hackrf_set_freq(dev, freq);
+        if (r != HACKRF_SUCCESS) {
+            fprintf(stderr, "[!] Failed to tune: %" PRIu64 " Hz\n", freq);
+            break;
+        }
+
+        hackrf_set_sample_rate(dev, cfg->sample_rate);
+        hackrf_set_amp_enable(dev, 1);
+
+        // Simulated hit every 10 MHz (for now)
+        if ((freq / 1000000) % 10 == 0) {
+            logger_record(freq, -50, "persistent");
+            printf("[+] Signal at %" PRIu64 " Hz\n", freq);
         }
 
         usleep(cfg->dwell_ms * 1000);
-
-        int rssi = 0;
-        if (measure_signal(&rssi) != 0) {
-            fprintf(stderr, "[!] Signal measure failed\n");
-            freq += cfg->step_hz;
-            continue;
-        }
-
-        if (rssi >= cfg->rssi_threshold) {
-            int status = signal_map_register(freq, rssi);
-            if (status >= 2) {
-                logger_record(freq, rssi, status);
-            }
-        }
-
         freq += cfg->step_hz;
     }
 
-    hackrf_close(device);
+    hackrf_close(dev);
     hackrf_exit();
     return 0;
 }
