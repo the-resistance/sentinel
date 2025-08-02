@@ -1,3 +1,5 @@
+// logger.c — v1.1.0 — UUID logging added — 2025-08-02
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
