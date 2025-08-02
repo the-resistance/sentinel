@@ -1,29 +1,33 @@
 #!/bin/bash
 
-echo "[*] Checking for HackRF..."
+# ───────────────────────────────────────
+# Sentinel RF Monitoring Wrapper Script
+# Launches: QuickScan → FullScan Loop
+# Logs hits, triggers decode/capture
+# ───────────────────────────────────────
+
+echo "[*] Verifying HackRF connection..."
 if ! hackrf_info | grep -q "Found HackRF"; then
-    echo "[!] HackRF not detected. Aborting."
-    exit 1
+  echo "[!] HackRF not detected. Exiting."
+  exit 1
 fi
 
-echo "[*] Ensuring data directories exist..."
-mkdir -p db logs data
+echo "[*] Ensuring runtime directories..."
+mkdir -p logs captures db data scripts
 
-# Optional: initialize DB manually
+# Init database if missing
 if [ ! -f db/signal_log.db ]; then
-    echo "[*] Initializing SQLite database..."
-    ./db/init_db.sh
+  echo "[*] Initializing SQLite signal database..."
+  ./db/init_db.sh
 fi
 
-# Optional: create default band filters if missing
-for f in data/ignore_bands.txt data/tactical_bands.txt; do
-    if [ ! -f "$f" ]; then
-        echo "[*] Creating placeholder: $f"
-        echo "# <start_freq> <end_freq>" > "$f"
-    fi
+# Run QuickScan once (high-priority bands only)
+echo "[*] Running initial QuickScan..."
+./rfscan --mode quick
+
+# Begin infinite full-spectrum sweep loop
+while true; do
+  echo "[*] Running ComprehensiveScan pass..."
+  ./rfscan --mode general
+  sleep 10
 done
-
-echo "[*] Launching rfscan..."
-./rfscan
-
-echo "[✓] Scan finished."
