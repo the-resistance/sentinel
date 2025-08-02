@@ -1,36 +1,26 @@
-# Makefile for Sentinel RF scanner
+# Makefile — v1.1.0 — UUID support — 2025-08-02
 
-CC=gcc
-CFLAGS=-Wall -O2
-SRC_DIR=src
-BIN_DIR=bin
-INCLUDE=-I$(SRC_DIR)
+CC = gcc
+CFLAGS = -Wall -Wextra -O2 -std=c11
 
-SRCS=$(wildcard $(SRC_DIR)/*.c)
-OBJS=$(SRCS:.c=.o)
+INCLUDES = -Isrc
+SRC = src/main.c \
+      src/logger.c \
+      src/signal_processor.c \
+      src/uuid_utils.c
 
-# Output binaries
-RFSCAN=$(BIN_DIR)/rfscan
-RFDASH=$(BIN_DIR)/rfdash
+OBJ = $(SRC:.c=.o)
+BIN = bin/sentinel
 
-.PHONY: all clean build install
+all: $(BIN)
 
-all: build
+$(BIN): $(OBJ)
+	@mkdir -p bin
+	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
 
-build: $(RFSCAN) $(RFDASH)
-
-$(RFSCAN): $(SRC_DIR)/main.c $(SRC_DIR)/logger.c $(SRC_DIR)/signal_processor.c
-	mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) $(INCLUDE) -o $@ $^
-
-$(RFDASH): rfdash.c
-	mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ rfdash.c -lncurses
+%.o: %.c
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -f $(BIN_DIR)/*
-	rm -f $(SRC_DIR)/*.o
-
-install:
-	cp $(RFSCAN) /usr/local/bin/rfscan
-	cp $(RFDASH) /usr/local/bin/rfdash
+	rm -f src/*.o
+	rm -f $(BIN)
