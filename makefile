@@ -1,30 +1,13 @@
-# Makefile for rf-sentinel
 CC = gcc
-CFLAGS = -Wall -O2
-LDFLAGS = -lhackrf -lsqlite3
+CFLAGS = -Wall -O2 -std=c11 -Isrc
 
-SRC = \
-	src/main.c \
-	src/sweep.c \
-	src/band_filter.c \
-	src/signal_map.c \
-	src/logger.c
-
-HDR = \
-	src/sweep.h \
-	src/band_filter.h \
-	src/signal_map.h \
-	src/logger.h \
-	src/version.h
+SRC = $(wildcard src/*.c)
+OBJ = $(SRC:.c=.o)
 
 BIN = rfscan
 
-all: $(BIN)
-
-$(BIN): $(SRC) $(HDR)
-	$(CC) $(CFLAGS) $(SRC) -o $(BIN) $(LDFLAGS)
+$(BIN): $(OBJ)
+	$(CC) $(CFLAGS) -o $@ $^ -lhackrf -lsqlite3
 
 clean:
-	rm -f $(BIN)
-
-.PHONY: all clean
+	rm -f $(BIN) $(OBJ)
