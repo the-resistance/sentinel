@@ -1,55 +1,14 @@
-// signal_processor.c
-// Maps frequencies to labels + scores using protocols.def
-
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 #include "logger.h"
+#include "uuid_utils.h"
 
-#define MAX_PROTOS 64
+void process_signal(const char* label, uint64_t freq, int rssi, int score, const unsigned char* payload, size_t length) {
+    char uuid_buf[128] = {0};
 
-typedef struct {
-    int start;
-    int end;
-    char label[32];
-    int score;
-} Protocol;
+    // Try to extract UUID (BLE, Apple, etc.)
+    extract_uuid_from_payload(payload, length, uuid_buf, sizeof(uuid_buf));
 
-Protocol defs[MAX_PROTOS];
-int def_count = 0;
-
-void load_protocols(const char *path) {
-    FILE *f = fopen(path, "r");
-    if (!f) return;
-
-    char line[128];
-    while (fgets(line, sizeof(line), f)) {
-        if (line[0] == '#' || strlen(line) < 5) continue;
-        int start, end, score;
-        char label[32];
-        if (sscanf(line, "%d %d %31s %d", &start, &end, label, &score) == 4) {
-            defs[def_count].start = start;
-            defs[def_count].end = end;
-            strncpy(defs[def_count].label, label, sizeof(defs[def_count].label));
-            defs[def_count].score = score;
-            def_count++;
-        }
-    }
-
-    fclose(f);
-}
-
-void process_signal(int freq, int rssi) {
-    const char *label = "UNKNOWN";
-    int score = 0;
-
-    for (int i = 0; i < def_count; i++) {
-        if (freq >= defs[i].start && freq <= defs[i].end) {
-            label = defs[i].label;
-            score = defs[i].score;
-            break;
-        }
-    }
-
-    log_signal(label, freq, rssi, score);
+    log_signal(label, freq, rssi, score, uuid_buf[0] ? uuid_buf : "null");
 }
