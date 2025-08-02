@@ -1,32 +1,51 @@
+// main.c
+// Sentinel spectrum monitor entry point
+// version: v1.3.1
+
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+#include <string.h>
 #include <unistd.h>
-#include "version.h"
-#include "band_filter.h"
 #include "logger.h"
-#include "sweep.h"
+#include "device.h"
+#include "scanner.h"
+#include "signal.h"
+#include "uuid_utils.h"
 
-band_range_t ignore_bands[MAX_BANDS], tactical_bands[MAX_BANDS];
-int ignore_count = 0, tactical_count = 0;
+#define VERSION_STRING "Sentinel v1.3.1"
 
-int main() {
-    ignore_count = load_bands("data/ignore_bands.txt", ignore_bands, MAX_BANDS);
-    tactical_count = load_bands("data/tactical_bands.txt", tactical_bands, MAX_BANDS);
+int main(int argc, char *argv[]) {
+    printf("%s\n", VERSION_STRING);
 
-    printf("[*] Loaded %d ignore bands, %d tactical bands\n", ignore_count, tactical_count);
+    config_t config = {0};
+    if (parse_args(argc, argv, &config) != 0) {
+        fprintf(stderr, "[-] Failed to parse arguments.\n");
+        return 1;
+    }
 
-    logger_init("logs/trace_index.csv", "db/signal_log.db");
+    if (logger_init("logs/signal_log.csv", "db/signal_log.db") != 0) {
+        fprintf(stderr, "[-] Logger initialization failed.\n");
+        return 1;
+    }
 
-    sweep_config_t cfg = {
-        .start_freq = 1000000,
-        .end_freq   = 6000000000ULL,
-        .step_hz    = 1000000,
-        .sample_rate = 10000000,
-        .dwell_ms = 75
-    };
+    device_t dev = {0};
+    if (init_device(&dev, config.device_index) != 0) {
+        fprintf(stderr, "[-] Failed to initialize HackRF device.\n");
+        logger_close();
+        return 1;
+    }
 
-    run_sweep(&cfg);
+    printf("[+] Device initialized. Starting scan...\n");
+
+    for (uint64_t freq = config.start_freq; freq <= config.end_freq; freq += config.step_hz) {
+        if (scan_frequency(&dev, freq, config.dwell_ms)) {
+            log_signal(freq, get_rssi(&dev), generate_uuid(freq));
+        }
+    }
+
+    close_device(&dev);
     logger_close();
+
+    printf("[+] Scan complete. Logs saved.\n");
     return 0;
 }
