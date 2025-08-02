@@ -2,10 +2,11 @@
 #define LOGGER_H
 
 #include <stdint.h>
-#include <stdio.h>
 
-void logger_init(const char *csv_path, const char *sqlite_path);
-void logger_record(uint64_t freq_hz, int rssi, const char *status_str);
-void logger_close(void);
+// Initialize logger (optional, not yet used)
+void init_logger(const char* filepath);
+
+// Core log function used by signal processor
+void log_signal(const char* label, uint64_t freq, int rssi, int score);
 
 #endif
