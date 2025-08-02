@@ -1,14 +1,14 @@
 # rf-sentinel
 
-**RF Signal Sweep + Persistence Detection System**
-
-Lightweight C tool to sweep spectrum with HackRF, detect unknown signals, and track confirmed or persistent RF activity. Includes SQLite logging, tactical filtering, and modular filtering logic.
+Passive RF sweep utility using HackRF for signal detection, band exclusion, and signal persistence logging.
 
 ---
 
-## 🔧 Build Instructions
-
-**Dependencies (Debian/Kali):**
+## Build Instructions (Kali Linux)
 
 ```bash
-sudo apt install build-essential libhackrf-dev libsqlite3-dev
+sudo apt update
+sudo apt install -y build-essential libhackrf-dev libsqlite3-dev sqlite3 git
+git clone https://github.com/the-resistance/sentinel ~/sentinel
+cd ~/sentinel
+make
