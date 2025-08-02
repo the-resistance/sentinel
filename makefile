@@ -1,26 +1,33 @@
-# Makefile — v1.1.0 — UUID support — 2025-08-02
+# makefile — Sentinel RF Scanner v0.9.2
+# Author: Kevin / System Architect
+# Description: Compiles the Sentinel RF scan suite with SQLite logging, vendor resolution, and band filters.
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -std=c11
+CFLAGS = -Wall -Wextra -O2 -std=c11 -Isrc
+LDFLAGS = -lm -lsqlite3
+BIN_DIR = bin
+SRC_DIR = src
 
-INCLUDES = -Isrc
-SRC = src/main.c \
-      src/logger.c \
-      src/signal_processor.c \
-      src/uuid_utils.c
+OBJS = \
+  $(SRC_DIR)/main.o \
+  $(SRC_DIR)/logger.o \
+  $(SRC_DIR)/device.o \
+  $(SRC_DIR)/signal_processor.o \
+  $(SRC_DIR)/band_filter.o
 
-OBJ = $(SRC:.c=.o)
-BIN = bin/sentinel
+TARGET = $(BIN_DIR)/rfscan
 
-all: $(BIN)
+.PHONY: all clean
 
-$(BIN): $(OBJ)
-	@mkdir -p bin
-	$(CC) $(CFLAGS) $(INCLUDES) -o $@ $^
+all: $(TARGET)
 
-%.o: %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+$(TARGET): $(OBJS)
+	@mkdir -p $(BIN_DIR)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
+
+$(SRC_DIR)/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f src/*.o
-	rm -f $(BIN)
+	rm -f $(SRC_DIR)/*.o
+	rm -f $(TARGET)
