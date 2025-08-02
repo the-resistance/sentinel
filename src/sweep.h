@@ -1,16 +1,10 @@
-#ifndef SWEEP_H
-#define SWEEP_H
+#ifndef SCANNER_H
+#define SCANNER_H
 
 #include <stdint.h>
 
-typedef struct {
-    uint64_t start_freq;
-    uint64_t end_freq;
-    uint64_t step_hz;
-    uint32_t sample_rate;
-    uint32_t dwell_ms;
-} sweep_config_t;
+void init_scanner();
+void perform_scan(uint64_t start_freq, uint64_t end_freq, uint32_t step_hz);
+void shutdown_scanner();
 
-int run_sweep(const sweep_config_t *cfg);
-
-#endif
+#endif // SCANNER_H
