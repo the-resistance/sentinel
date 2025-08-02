@@ -1,3 +1,5 @@
+// logger.h — v1.1.0 — UUID logging added — 2025-08-02
+
 #ifndef LOGGER_H
 #define LOGGER_H
 
