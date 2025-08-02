@@ -1,37 +1,36 @@
 #!/bin/bash
+set -e
 
-echo "[*] Updating package list..."
+echo "[*] Updating system..."
 sudo apt update
 
-echo "[*] Installing dependencies..."
+echo "[*] Installing Sentinel dependencies..."
 sudo apt install -y \
-    build-essential \
-    libhackrf-dev \
-    libsqlite3-dev \
-    sqlite3 \
-    git \
-    cmake \
-    hackrf \
-    gnuradio
+  build-essential gcc \
+  libncurses5-dev libncursesw5-dev \
+  sqlite3 libsqlite3-dev \
+  hackrf gnuradio gr-osmosdr \
+  wireshark tshark aircrack-ng \
+  git python3 python3-pip \
+  python3-scapy net-tools jq dialog
 
-echo "[*] Cloning repository..."
-TARGET_DIR="/home/kali/sentinel"
-
-if [ -d "$TARGET_DIR" ]; then
-    echo "[*] Removing existing $TARGET_DIR"
-    rm -rf "$TARGET_DIR"
+echo "[*] Cloning Sentinel (if missing)..."
+if [ ! -d "$HOME/sentinel" ]; then
+    git clone https://github.com/the-resistance/sentinel.git "$HOME/sentinel"
+else
+    echo "[*] Repo already exists. Skipping clone."
 fi
 
-git clone https://github.com/the-resistance/sentinel "$TARGET_DIR"
+cd "$HOME/sentinel"
 
-echo "[*] Setting script permissions..."
-chmod +x "$TARGET_DIR"/db/init_db.sh
+echo "[*] Creating required directories..."
+mkdir -p bin db logs captures data scripts
 
 echo "[*] Building project..."
-cd "$TARGET_DIR" || exit 1
-make clean && make
+make clean
+make
 
-echo "[✓] Setup complete."
-echo "Run the scanner with:"
-echo "  cd $TARGET_DIR"
-echo "  ./rfscan --mode full --threshold -90 --dwell 100"
+echo "[*] Setting permissions..."
+chmod +x run_monitor.sh scripts/*.sh
+
+echo "[+] Setup complete. Use './run_monitor.sh' to start monitoring."
