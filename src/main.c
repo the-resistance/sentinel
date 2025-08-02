@@ -1,82 +1,47 @@
-// main.c
-// rf-sentinel v0.1.0
-// Entry point for RF sweep tool using HackRF
-// Author: [You]
-// License: [Classified / Open as desired]
-
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
-#include <signal.h>
-#include "sweep.h"
-#include "band_filter.h"
-#include "signal_map.h"
-#include "logger.h"
+#include <unistd.h>
 #include "version.h"
+#include "band_filter.h"
+#include "logger.h"
 
-volatile int keep_running = 1;
-
-void handle_sigint(int sig) {
-    keep_running = 0;
-    fprintf(stderr, "\n[!] Caught SIGINT, terminating sweep...\n");
+// --- Simulated sweep (placeholder) ---
+uint64_t sweep_step(uint64_t current_freq, uint64_t step_size, uint64_t max_freq) {
+    return (current_freq + step_size <= max_freq) ? current_freq + step_size : 0;
 }
 
-void print_usage(const char *prog) {
-    printf("Usage: %s --mode full|tactical --threshold -95 --dwell 100\n", prog);
-    printf("Optional: --step 1000000 --rate 2000000\n");
-}
+// --- Configuration ---
+#define START_FREQ 1000000       // 1 MHz
+#define END_FREQ   6000000000ULL // 6 GHz
+#define STEP_HZ    1000000       // 1 MHz
+#define DWELL_MS   50            // dwell time
 
 int main(int argc, char *argv[]) {
-    sweep_config_t cfg;
+    band_range_t ignore_bands[MAX_BANDS], tactical_bands[MAX_BANDS];
+    int ignore_count = load_bands("data/ignore_bands.txt", ignore_bands, MAX_BANDS);
+    int tactical_count = load_bands("data/tactical_bands.txt", tactical_bands, MAX_BANDS);
 
-    // Defaults
-    cfg.freq_start_hz = 1000000;
-    cfg.freq_end_hz   = 6000000000;
-    cfg.step_hz       = 1000000;
-    cfg.dwell_ms      = 100;
-    cfg.rssi_threshold = -95;
-    cfg.sample_rate   = 2000000;
-    cfg.mode          = MODE_FULL;
+    printf("[*] Loaded %d ignore bands, %d tactical bands\n", ignore_count, tactical_count);
 
-    printf("rf-sentinel v%s\n", VERSION_STRING);
-    printf("https://github.com/your/repo\n\n");
-
-    // Parse minimal args
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "--mode") == 0 && i+1 < argc) {
-            if (strcmp(argv[i+1], "tactical") == 0) cfg.mode = MODE_TACTICAL;
-            else cfg.mode = MODE_FULL;
-            i++;
-        } else if (strcmp(argv[i], "--threshold") == 0 && i+1 < argc) {
-            cfg.rssi_threshold = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--dwell") == 0 && i+1 < argc) {
-            cfg.dwell_ms = atoi(argv[++i]);
-        } else if (strcmp(argv[i], "--step") == 0 && i+1 < argc) {
-            cfg.step_hz = strtoul(argv[++i], NULL, 10);
-        } else if (strcmp(argv[i], "--rate") == 0 && i+1 < argc) {
-            cfg.sample_rate = strtoul(argv[++i], NULL, 10);
-        } else {
-            print_usage(argv[0]);
-            return 1;
-        }
-    }
-
-    signal(SIGINT, handle_sigint);
-
-    // Load ignore/tactical bands
-    if (load_band_filters("data/ignore_bands.txt", "data/tactical_bands.txt") != 0) {
-        fprintf(stderr, "[X] Failed to load band filters.\n");
-        return 1;
-    }
-
-    // Init logger + hit map
     logger_init("logs/trace_index.csv", "db/signal_log.db");
-    signal_map_init();
 
-    // Begin sweep
-    if (sweep_run(&cfg, &keep_running) != 0) {
-        fprintf(stderr, "[X] Sweep failed or terminated abnormally.\n");
-        return 1;
+    uint64_t freq = START_FREQ;
+    while (freq && freq <= END_FREQ) {
+        if (in_any_band(freq, ignore_bands, ignore_count)) {
+            freq = sweep_step(freq, STEP_HZ, END_FREQ);
+            continue;
+        }
+
+        // Simulated detection: every 10 MHz trigger
+        if ((freq / 1000000) % 10 == 0) {
+            logger_record(freq, -55, "persistent");
+            printf("[+] Hit: %" PRIu64 " Hz\n", freq);
+        }
+
+        usleep(DWELL_MS * 1000);
+        freq = sweep_step(freq, STEP_HZ, END_FREQ);
     }
 
     logger_close();
