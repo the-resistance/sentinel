@@ -1,36 +1,55 @@
 #!/bin/bash
-set -e
+# setup_sentinel.sh — v1.4.0 — Full protocol & DB support — 2025-08-02
 
-echo "[*] Updating system..."
-sudo apt update
+echo "[+] Updating packages..."
+sudo apt update && sudo apt install -y \
+  build-essential gcc make git \
+  libpcap-dev libhackrf-dev hackrf \
+  gnuradio gqrx-sdr gr-osmosdr \
+  aircrack-ng bluez bluetooth rfcat \
+  gpsd gpsd-clients inspectrum \
+  net-tools network-manager \
+  wireshark tshark sqlite3 libsqlite3-dev \
+  python3 python3-pip python3-scapy
 
-echo "[*] Installing Sentinel dependencies..."
-sudo apt install -y \
-  build-essential gcc \
-  libncurses5-dev libncursesw5-dev \
-  sqlite3 libsqlite3-dev \
-  hackrf gnuradio gr-osmosdr \
-  wireshark tshark aircrack-ng \
-  git python3 python3-pip \
-  python3-scapy net-tools jq dialog
+echo "[+] Installing protocol tools via pip..."
+pip3 install --break-system-packages \
+  bleah killerbee scapy-radio
 
-echo "[*] Cloning Sentinel (if missing)..."
-if [ ! -d "$HOME/sentinel" ]; then
-    git clone https://github.com/the-resistance/sentinel.git "$HOME/sentinel"
+echo "[+] Cloning or updating repo..."
+REPO_DIR="/home/kali/sentinel"
+
+if [ ! -d "$REPO_DIR" ]; then
+  git clone https://github.com/the-resistance/sentinel.git "$REPO_DIR"
 else
-    echo "[*] Repo already exists. Skipping clone."
+  cd "$REPO_DIR" && git pull
 fi
 
-cd "$HOME/sentinel"
+echo "[+] Creating runtime directories..."
+mkdir -p "$REPO_DIR/logs"
+mkdir -p "$REPO_DIR/bin"
+mkdir -p "$REPO_DIR/db"
 
-echo "[*] Creating required directories..."
-mkdir -p bin db logs captures data scripts
+echo "[+] Fixing script & binary permissions..."
+find "$REPO_DIR" -type f -name "*.sh" -exec chmod +x {} \;
+find "$REPO_DIR" -type f -name "*.py" -exec chmod +x {} \;
+chmod +x "$REPO_DIR/bin/sentinel"
 
-echo "[*] Building project..."
-make clean
-make
+echo "[+] Building project..."
+cd "$REPO_DIR"
+make clean && make
 
-echo "[*] Setting permissions..."
-chmod +x run_monitor.sh scripts/*.sh
+echo "[+] Initializing SQLite signal_log.db..."
+sqlite3 "$REPO_DIR/db/signal_log.db" <<EOF
+CREATE TABLE IF NOT EXISTS signals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    timestamp TEXT,
+    label TEXT,
+    freq INTEGER,
+    rssi INTEGER,
+    score INTEGER,
+    uuid TEXT
+);
+EOF
 
-echo "[+] Setup complete. Use './run_monitor.sh' to start monitoring."
+echo "[✓] Setup complete. Run: $REPO_DIR/bin/sentinel"
