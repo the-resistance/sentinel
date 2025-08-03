@@ -1,8 +1,9 @@
-// src/version.h
+// version.h
+// version: v1.3.1
+
 #ifndef VERSION_H
 #define VERSION_H
 
-#define BUILD_VERSION "v0.1.0"
-#define BUILD_TAG "rf-sentinel-core"
+#define VERSION_STRING "Sentinel v1.3.1"
 
 #endif
