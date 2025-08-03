@@ -6,13 +6,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #include "logger.h"
 #include "device.h"
 #include "scanner.h"
-#include "signal.h"
+#include "signal_map.h"
 #include "uuid_utils.h"
-
-#define VERSION_STRING "Sentinel v1.3.1"
+#include "version.h"
 
 int main(int argc, char *argv[]) {
     printf("%s\n", VERSION_STRING);
@@ -35,17 +35,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    printf("[+] Device initialized. Starting scan...\n");
-
     for (uint64_t freq = config.start_freq; freq <= config.end_freq; freq += config.step_hz) {
-        if (scan_frequency(&dev, freq, config.dwell_ms)) {
-            log_signal(freq, get_rssi(&dev), generate_uuid(freq));
-        }
+        scan_frequency(&dev, freq, config.dwell_ms, &config);
     }
 
-    close_device(&dev);
     logger_close();
-
-    printf("[+] Scan complete. Logs saved.\n");
     return 0;
 }
