@@ -1,7 +1,33 @@
-# freq_start freq_end  label        score
-2402000000   2480000000 BLE_MESH    100
-902000000    928000000  ISM_TRACKER 90
-433000000    435000000  LORA_EU     85
-850000000    1990000000 GSM_UPLINK  95
-868000000    870000000  SIGFOX_EU   75
-1575000000   1585000000 GPS_REBROAD 60
+# Protocol        Frequency    Modulation    Description
+BLE              2.4 GHz      GFSK          Bluetooth Low Energy (beacons, trackers)
+ClassicBT        2.4 GHz      GFSK          Bluetooth Classic (audio, legacy devices)
+Wi-Fi            2.4 GHz      OFDM          802.11b/g/n
+Wi-Fi            5 GHz        OFDM          802.11a/n/ac
+Wi-Fi            6 GHz        OFDMA         802.11ax / Wi-Fi 6E
+LoRaWAN          433 MHz      CSS           LPWAN trackers / IoT (EU, Asia)
+LoRaWAN          868 MHz      CSS           LPWAN trackers / IoT (EU)
+LoRaWAN          915 MHz      CSS           LPWAN trackers / IoT (US)
+Sigfox           868 MHz      DBPSK/GFSK    Ultra-narrowband LPWAN (EU)
+Sigfox           902 MHz      DBPSK/GFSK    Ultra-narrowband LPWAN (US)
+Zigbee           2.4 GHz      OQPSK         Smart home IoT mesh (802.15.4)
+Thread           2.4 GHz      OQPSK         Secure IPv6 IoT mesh (802.15.4)
+UWB              6.5 GHz      IR-UWB        Ultra-wideband (AirTags, SmartTags)
+RFID             125 KHz      ASK           Low-frequency passive RFID
+RFID             13.56 MHz    ASK           HF RFID (NFC, badges)
+RFID             915 MHz      ASK/FSK       UHF RFID (EPC Gen2)
+GSM              850 MHz      GMSK          Legacy cellular signaling
+GSM              900 MHz      GMSK          Legacy cellular signaling
+GSM              1800 MHz     GMSK          Legacy cellular signaling
+GSM              1900 MHz     GMSK          Legacy cellular signaling
+LTE              700 MHz      OFDMA         4G LTE downlink
+LTE              1700 MHz     OFDMA         4G LTE uplink/downlink
+LTE              2600 MHz     OFDMA         4G LTE high band
+5G-NR            3.5 GHz      OFDMA         5G New Radio mid-band
+Insteon          915 MHz      FSK           Home automation
+X10 RF           310 MHz      ASK           Legacy home automation
+GarageRemote     315 MHz      OOK           Fixed-code remote controls
+GarageRemote     433 MHz      OOK           Fixed-code remote controls
+KeyFob           315 MHz      OOK/FSK       Automotive keyless entry
+KeyFob           433 MHz      OOK/FSK       Automotive keyless entry
+SmartMeter       900 MHz      FSK/PSK       Utility metering
+EnOcean          868 MHz      ASK           Energy-harvesting switches
