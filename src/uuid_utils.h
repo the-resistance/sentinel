@@ -1,10 +1,11 @@
-// uuid_utils.h — v1.0.0 — UUID extraction helper — 2025-08-02
+// uuid_utils.h
+// version: v1.3.1
 
 #ifndef UUID_UTILS_H
 #define UUID_UTILS_H
 
-#include <stddef.h>
+#include <stdint.h>
 
-void extract_uuid_from_payload(const unsigned char* data, size_t len, char* out_uuid, size_t out_size);
+void generate_uuid(uint64_t freq, char *out, int out_size);
 
 #endif
