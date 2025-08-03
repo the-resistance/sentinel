@@ -1,15 +1,11 @@
-// signal_processor.c — v1.1.0 — UUID processing added — 2025-08-02
+// signal_processor.c
+// version: v1.3.1
 
-#include <stdio.h>
-#include <stdint.h>
-#include <string.h>
+#include "signal_processor.h"
 
-#include "logger.h"
-#include "uuid_utils.h"
-
-void process_signal(const char* label, uint64_t freq, int rssi, int score, const unsigned char* payload, size_t length) {
-    char uuid_buf[128] = {0};
-
-    extract_uuid_from_payload(payload, length, uuid_buf, sizeof(uuid_buf));
-    log_signal(label, freq, rssi, score, uuid_buf[0] ? uuid_buf : "null");
+int analyze_rssi(uint64_t freq, double rssi) {
+    if (rssi > -30.0) return 100;
+    if (rssi > -50.0) return 75;
+    if (rssi > -70.0) return 50;
+    return 0;
 }
