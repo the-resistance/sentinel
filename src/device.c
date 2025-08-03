@@ -1,19 +1,30 @@
-#include "device.h"
-#include <string.h>
+// device.c
+// version: v1.3.1
 
-void identify_device(DeviceInfo *dev) {
-    // Placeholder logic for now
-    if (dev->freq > 2400000000 && dev->freq < 2500000000) {
-        strncpy(dev->label, "Possible 2.4GHz tracker", sizeof(dev->label));
-        dev->score = 90;
-    } else {
-        strncpy(dev->label, "Unclassified", sizeof(dev->label));
-        dev->score = 10;
-    }
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "device.h"
+
+int parse_args(int argc, char **argv, config_t *config) {
+    if (argc < 2) return -1;
+    config->start_freq = 100000000ULL;
+    config->end_freq = 6000000000ULL;
+    config->step_hz = 1000000;
+    config->dwell_ms = 50;
+    config->signal_threshold = 50;
+    config->device_index = 0;
+    return 0;
 }
 
-const char* resolve_vendor(uint64_t freq) {
-    if (freq > 2400000000 && freq < 2500000000) return "BLE/Wi-Fi Range";
-    if (freq > 902000000 && freq < 928000000) return "LoRa/ISM Band";
-    return "Unknown Spectrum";
+int init_device(device_t *dev, int index) {
+    dev->handle = NULL;
+    return 0;
+}
+
+double measure_rssi(device_t *dev, uint64_t freq, int dwell_ms) {
+    (void)dev;
+    (void)freq;
+    (void)dwell_ms;
+    return -45.0;
 }
