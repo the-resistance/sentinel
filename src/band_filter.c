@@ -1,35 +1,47 @@
+// band_filter.c — Sentinel Band Filtering
+// Version: 1.0.3
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
-#include "band_filter.h"
 
-int parse_band_line(char *line, band_range_t *out) {
-    if (!line || !out) return -1;
-    return sscanf(line, "%" SCNu64 " %" SCNu64, &out->start, &out->end) == 2 ? 0 : -1;
+static float excluded_bands[512][2];
+static int excluded_count = 0;
+
+static float protocol_whitelist[256];
+static int protocol_count = 0;
+
+void load_excluded_bands(const char *filename) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return;
+    while (fscanf(fp, "%f %f", &excluded_bands[excluded_count][0], &excluded_bands[excluded_count][1]) == 2) {
+        excluded_count++;
+    }
+    fclose(fp);
 }
 
-int load_bands(const char *filename, band_range_t *bands, int max) {
-    FILE *fp = fopen(filename, "r");
-    if (!fp) return -1;
-
-    char line[128];
-    int count = 0;
-
-    while (fgets(line, sizeof(line), fp) && count < max) {
-        if (line[0] == '#' || strlen(line) < 3) continue;
-        if (parse_band_line(line, &bands[count]) == 0) {
-            count++;
+int is_band_excluded(float freq) {
+    for (int i = 0; i < excluded_count; i++) {
+        if (freq >= excluded_bands[i][0] && freq <= excluded_bands[i][1]) {
+            return 1;
         }
     }
-
-    fclose(fp);
-    return count;
+    return 0;
 }
 
-int in_any_band(uint64_t freq, const band_range_t *bands, int count) {
-    for (int i = 0; i < count; i++) {
-        if (freq >= bands[i].start && freq <= bands[i].end) {
+void load_protocol_whitelist(const char *filename) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) return;
+    float freq;
+    while (fscanf(fp, "%f", &freq) == 1 && protocol_count < 256) {
+        protocol_whitelist[protocol_count++] = freq;
+    }
+    fclose(fp);
+}
+
+int is_in_protocol_list(float freq) {
+    for (int i = 0; i < protocol_count; ++i) {
+        if (freq >= protocol_whitelist[i] - 0.1 && freq <= protocol_whitelist[i] + 0.1) {
             return 1;
         }
     }
