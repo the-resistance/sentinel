@@ -1,8 +1,7 @@
-// version.c — Build metadata provider for Sentinel
-// Linked into runtime for version verification
+// version.c — Build Metadata
 
 #include "version.h"
 
-const char* get_build_info() {
-    return "Sentinel RF Scanner " SENTINEL_VERSION " (built " BUILD_DATE " " BUILD_TIME ")";
+const char* get_build_info(void) {
+    return "Sentinel RF Scanner v1.0.3 — (Build: " __DATE__ " " __TIME__ ")";
 }
