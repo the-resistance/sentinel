@@ -45,6 +45,7 @@ REQUIRED_PACKAGES=(
   tshark
   wireshark
   ntpdate
+  cmake
 )
 
 echo "[*] Step 4: Installing core packages for HackRF, PCAP, analysis"
