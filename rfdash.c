@@ -1,4 +1,12 @@
-// rfdash.c
+/* ─────────────────────────────────────────────
+ * Filename:    rfdash.c
+ * Version:     v1.0.1
+ * Author:      Kevin / System Architect
+ * Description: ncurses-based live dashboard for
+ *              viewing recent RF hits and scan phase.
+ *              Reads from logs/live_feed.log.
+ * ───────────────────────────────────────────── */
+
 #include <ncurses.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,9 +26,9 @@ int total_hits = 0;
 
 void draw_dashboard() {
     clear();
-    mvprintw(0, 2, "Sentinel RF Dashboard");
+    mvprintw(0, 2, "Sentinel RF Dashboard  —  v1.0.1");
     mvprintw(1, 2, "Scan Phase: %s", getenv("SCAN_PHASE") ? getenv("SCAN_PHASE") : "UNKNOWN");
-    mvprintw(2, 2, "Hits (last %d):", MAX_HITS);
+    mvprintw(2, 2, "Recent Hits (last %d):", MAX_HITS);
 
     for (int i = 0; i < MAX_HITS; i++) {
         if (strlen(hits[i].freq) > 0) {
@@ -67,7 +75,7 @@ int main() {
                 }
             }
             fclose(fp);
-            remove("logs/live_feed.log"); // clear processed
+            remove("logs/live_feed.log");
         }
 
         draw_dashboard();
