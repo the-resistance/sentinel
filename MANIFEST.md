@@ -1,70 +1,50 @@
-# SENTINEL SYSTEM MANIFEST
-
-> Version: v1.0.0  
-> Layout: Functional Role Map  
-> Target OS: Kali Linux x86_64 (Live or Persistent)  
-
----
-
-## Core Shell Scripts
-
-- `run_monitor.sh` — Main orchestrator and runtime interface
-- `quick_sweep.sh` — Initial quickband signal detection pass
-- `deep_trace.sh` — Targeted capture sweep on detected signals
-- `signal_watchdog.sh` — Background daemon to trigger deep traces
-- `summarize_trace.sh` — MAC/vendor extraction and classification
-- `setup_sentinel.sh` — Installs all packages, creates structure
-- `init_db.sh` — Initializes SQLite schema and tables
+# SENTINEL RF DETECTION SYSTEM — MANIFEST
+# Version:     v1.0.1
+# Author:      Kevin / System Architect
+# Description: Declarative list of all files, grouped by role.
 
 ---
 
-## Data Definitions
+## 🔧 Build System
+- `makefile` — Compiles all C modules into `bin/sentinel_v1.0.1.out`
+- `setup_sentinel.sh` — Installs dependencies, builds project
 
-- `data/protocols.def` — Spectrum protocol signatures (merge safe)
-- `data/band_exclude.def` — Static bands to ignore during scan
-- `data/band_focus.def` — Priority bands to track first
-- `data/watchlist.def` — UUID/MACs to watch and correlate
+## 🚦 Runtime Execution
+- `run-monitor.sh` — Orchestrates scan phases, triggers decode
+- `bin/sentinel_v1.0.1.out` — Main compiled binary
+- `bin/rfdash` — Optional ncurses dashboard (built via `make dashboard`)
 
----
+## 📁 src/ — Core Modules (all versioned)
+- `main.c` — Binary entrypoint
+- `scanner.c/.h` — Primary sweep/scanning logic
+- `sweep.c/.h` — Sweep control (range stepping, timing)
+- `device.c/.h` — HackRF device abstraction
+- `signal_processor.c/.h` — Signal logic (RSSI, thresholds)
+- `band_filter.c/.h` — Band exclusion based on config
+- `logger.c/.h` — Writes to `live_feed.log` and `signal_log.db`
+- `uuid_utils.c/.h` — Generates UUIDs for hits
+- `signal_map.c/.h` — Maps decoded signals to protocol IDs
+- `matcher.c` — Lightweight signature/protocol match
 
-## Source Code
+## 📁 scripts/ — Shell Layer
+- `on_hit_decode.sh` — Triggered post-match decoder (optional)
+- `clean_unused.sh` — Deletes deprecated files (optional)
 
-- `src/main.c` — Entry logic (scan, match, report flow)
-- `src/logger.c` / `src/logger.h` — Persistent logging utility
-- `src/sweep.c` / `src/sweep.h` — Frequency sweeping logic
-- `src/trace.c` / `src/trace.h` — Deep capture invocation
-- `src/sql.c` / `src/sql.h` — SQLite write interface
-- `src/defs.h` — Constants, versioning, and enums
+## 📁 db/
+- `init_db.sh` — SQLite3 schema initializer for `signal_log.db`
 
----
+## 📁 data/
+- `exclude_bands.txt` — Bands to skip during scan
+- `bands_tactical.txt` — Tactical band priorities
+- `bands_watchlist.txt` — Band alert list
+- `protocols.def` — Fingerprint map for matcher.c
 
-## Database Files
-
-- `db/sentinel.db` — SQLite persistent record of all detections
-- `db/schema.sql` — Schema source (auto-executed by `init_db.sh`)
-
----
-
-## Logs and Captures
-
-- `logs/scan_log_*.txt` — Timestamped sweep logs
-- `pcap_hits/deeptrace_<freq>_<timestamp>.pcap` — Raw captures
-- `output/trace_index.csv` — MAC + vendor + hit frequency
-- `output/mac_lookup.csv` — IEEE OUI snapshot
-
----
-
-## Misc Support
-
-- `Makefile` — Compilation routine (src → bin/sentinel)
-- `bin/sentinel` — Optional compiled binary if built
-- `README.md` — Overview and usage instructions
-- `MANIFEST.md` — This file
+## 📁 logs/ & captures/
+- Created at runtime, holds logs and PCAP files
 
 ---
 
-## Notes
-
-- All shell scripts assume execution from project root.
-- `chmod +x *.sh` should be run after `git clone`.
-- All PCAPs and DBs timestamped and auto-versioned.
+## 🗑 Removed Files (v1.0.1 Cleanup)
+- `scripts/analyze_heatmap.sh` — not linked
+- `scripts/restore_snapshot.sh` — not linked
+- `src/version.h` — unused header
