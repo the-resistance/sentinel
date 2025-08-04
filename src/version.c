@@ -1,7 +1,8 @@
-// version.c — Build metadata string provider
+// version.c — Build metadata provider for Sentinel
+// Linked into runtime for version verification
 
 #include "version.h"
 
 const char* get_build_info() {
-    return "Sentinel " SENTINEL_VERSION " built on " BUILD_DATE " at " BUILD_TIME;
+    return "Sentinel RF Scanner " SENTINEL_VERSION " (built " BUILD_DATE " " BUILD_TIME ")";
 }
