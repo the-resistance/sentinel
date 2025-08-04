@@ -1,4 +1,5 @@
-// signal_processor.h — Scan API Header
+// signal_processor.h — Processor Header
+// Version: 1.0.2
 
 #ifndef SIGNAL_PROCESSOR_H
 #define SIGNAL_PROCESSOR_H
