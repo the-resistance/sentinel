@@ -1,4 +1,4 @@
-// main.c — Sentinel RF Scanner Entry Point
+// src/main.c — Sentinel RF Scanner Entry Point
 // Version: 1.0.2
 // Author: Kevin / System Architect
 
@@ -22,35 +22,27 @@ int main(int argc, char *argv[]) {
     }
 
     const char *mode = argv[2];
+    device_t dev = {0};
 
-    if (strcmp(mode, "quick") != 0 && strcmp(mode, "general") != 0) {
-        fprintf(stderr, "[!] Invalid scan mode: %s\n", mode);
-        return 1;
-    }
-
-    device_t dev = {0};  // Initialize device struct
-
-    // Phase: Device Initialization
     if (!init_device(&dev, 0)) {
         fprintf(stderr, "[!] HackRF device initialization failed.\n");
         return 1;
     }
 
-    // Phase: Band Filtering Setup
     load_excluded_bands("data/bands_excluded.txt");
-    load_protocol_watchlist("data/protocol_watchlist.def");
 
-    // Phase: Scanning Execution
     if (strcmp(mode, "quick") == 0) {
         printf("[*] Starting QuickScan...\n");
         run_quick_scan(&dev);
-    } else {
+    } else if (strcmp(mode, "general") == 0) {
         printf("[*] Starting FullScan...\n");
         run_full_scan(&dev);
+    } else {
+        fprintf(stderr, "[!] Unknown mode: %s\n", mode);
+        shutdown_device(&dev);
+        return 1;
     }
 
-    // Phase: Cleanup
     shutdown_device(&dev);
-
     return 0;
 }
