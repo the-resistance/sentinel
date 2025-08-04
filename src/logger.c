@@ -1,15 +1,9 @@
-// logger.c — Signal Hit Logging
-// Version: 1.0.1
+// logger.c — Event Logger
+// Version: 1.0.3
 
-#include "logger.h"
 #include <stdio.h>
-#include <sqlite3.h>
-#include <time.h>
+#include "logger.h"
 
-void log_signal_hit(float freq, int rssi) {
-    FILE *fp = fopen("logs/live_feed.log", "a");
-    if (!fp) return;
-    time_t t = time(NULL);
-    fprintf(fp, "[%s] Freq: %.2f MHz | RSSI: %d\n", ctime(&t), freq, rssi);
-    fclose(fp);
+void log_event(const char *event, float freq, int rssi) {
+    printf("[LOG] %s | Freq: %.2f MHz | RSSI: %d\n", event, freq, rssi);
 }
