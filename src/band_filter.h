@@ -1,16 +1,12 @@
+// band_filter.h — Sentinel Band Filter Header
+
 #ifndef BAND_FILTER_H
 #define BAND_FILTER_H
 
-#include <stdint.h>
+void load_excluded_bands(const char *filename);
+int is_band_excluded(float freq);
 
-#define MAX_BANDS 128
-
-typedef struct {
-    uint64_t start;
-    uint64_t end;
-} band_range_t;
-
-int load_bands(const char *filename, band_range_t *bands, int max);
-int in_any_band(uint64_t freq, const band_range_t *bands, int count);
+void load_protocol_whitelist(const char *filename);
+int is_in_protocol_list(float freq);
 
 #endif
