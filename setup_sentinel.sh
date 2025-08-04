@@ -1,40 +1,46 @@
 #!/bin/bash
-# setup_sentinel.sh — Full installer for Sentinel RF stack
+# ─────────────────────────────────────────────
+# Filename:    setup_sentinel.sh
+# Version:     v1.0.1
+# Author:      Kevin / System Architect
+# Description: Installs dependencies, compiles scanner,
+#              and prepares runtime environment.
+# ─────────────────────────────────────────────
 
-echo "[*] Updating packages..."
+echo "[*] Updating package index..."
 apt-get update -y
 
-echo "[*] Installing dependencies..."
+echo "[*] Installing required packages..."
 apt-get install -y \
-    build-essential \
-    libhackrf-dev \
-    hackrf \
-    hackrf-tools \
-    libpcap-dev \
-    tcpdump \
-    sqlite3 \
-    libsqlite3-dev \
-    ncurses-bin \
-    libncurses5-dev \
-    coreutils \
-    jq \
-    htop \
-    binutils \
-    file \
-    findutils
+  build-essential \
+  libhackrf-dev \
+  hackrf \
+  hackrf-tools \
+  libpcap-dev \
+  tcpdump \
+  sqlite3 \
+  libsqlite3-dev \
+  ncurses-bin \
+  libncurses5-dev \
+  coreutils \
+  jq \
+  htop \
+  binutils \
+  file \
+  findutils
 
-echo "[*] Setting script permissions..."
+echo "[*] Setting execution permissions..."
 chmod +x run-monitor.sh scripts/*.sh db/*.sh
 
-echo "[*] Creating necessary directories..."
-mkdir -p logs captures bin
+echo "[*] Creating output directories..."
+mkdir -p logs captures bin db data scripts
 
-echo "[*] Building project..."
-make clean && make all
+echo "[*] Building Sentinel binary..."
+make clean && make build
 
 if [ $? -eq 0 ]; then
-    echo "[✔] Build successful: bin/sentinel.out and bin/rfdash ready."
+  echo "[✔] Build successful: bin/sentinel_v1.0.1.out"
 else
-    echo "[✘] Build failed."
-    exit 1
+  echo "[✘] Build failed."
+  exit 1
 fi
