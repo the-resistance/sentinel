@@ -3,12 +3,15 @@
 # Filename:    setup_sentinel.sh
 # Version:     v1.0.1
 # Author:      Kevin / System Architect
-# Description: Installs dependencies, compiles scanner,
-#              and prepares runtime environment.
+# Description: Installs dependencies, waits for full
+#              system update to complete, then builds
+#              Sentinel and applies permissions.
 # ─────────────────────────────────────────────
 
-echo "[*] Updating package index..."
-apt-get update -y
+set -e  # Exit immediately on error
+
+echo "[*] Updating system package index (blocking)..."
+apt-get update -y && echo "[✔] apt-get update completed."
 
 echo "[*] Installing required packages..."
 apt-get install -y \
@@ -27,20 +30,20 @@ apt-get install -y \
   htop \
   binutils \
   file \
-  findutils
+  findutils && echo "[✔] Package install completed."
 
-echo "[*] Setting execution permissions..."
+echo "[*] Ensuring script permissions are set..."
 chmod +x run-monitor.sh scripts/*.sh db/*.sh
 
-echo "[*] Creating output directories..."
+echo "[*] Creating runtime directories if missing..."
 mkdir -p logs captures bin db data scripts
 
 echo "[*] Building Sentinel binary..."
 make clean && make build
 
 if [ $? -eq 0 ]; then
-  echo "[✔] Build successful: bin/sentinel_v1.0.1.out"
+  echo "[✔] Build complete: bin/sentinel_v1.0.1.out"
 else
-  echo "[✘] Build failed."
+  echo "[✘] Build failed. Check output."
   exit 1
 fi
