@@ -1,6 +1,10 @@
-# makefile — Sentinel RF Scanner v1.0.1
-# Author: Kevin / System Architect
-# Description: Full module build w/ SQLite3, HackRF, ncurses dashboard
+# ─────────────────────────────────────────────
+# Filename:    makefile
+# Version:     v1.0.1
+# Author:      Kevin / System Architect
+# Description: Compiles Sentinel RF scanner suite
+#              with SQLite3 logging and HackRF backend.
+# ─────────────────────────────────────────────
 
 CC = gcc
 CFLAGS = -Wall -Wextra -O2 -std=c11 -Isrc
@@ -20,7 +24,7 @@ OBJS = \
   $(SRC_DIR)/sweep.o \
   $(SRC_DIR)/signal_map.o
 
-TARGET = $(BIN_DIR)/sentinel.out
+TARGET = $(BIN_DIR)/sentinel_v1.0.1.out
 
 .PHONY: all clean build dashboard
 
