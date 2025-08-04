@@ -1,44 +1,54 @@
-// main.c
-// Sentinel spectrum monitor entry point
-// version: v1.3.1
+// main.c — Sentinel RF Scanner Entry Point
+// Version: 1.0.1
+// Author: Kevin / System Architect
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
+#include "version.h"
 #include "logger.h"
 #include "device.h"
-#include "scanner.h"
-#include "signal_map.h"
-#include "uuid_utils.h"
-#include "version.h"
+#include "signal_processor.h"
+#include "band_filter.h"
 
 int main(int argc, char *argv[]) {
-    printf("%s\n", VERSION_STRING);
+    printf("───────────────────────────────────────────\n");
+    printf(" %s\n", get_build_info());
+    printf("───────────────────────────────────────────\n");
 
-    config_t config = {0};
-    if (parse_args(argc, argv, &config) != 0) {
-        fprintf(stderr, "[-] Failed to parse arguments.\n");
+    if (argc < 2) {
+        fprintf(stderr, "[!] Usage: %s --mode [quick|general]\n", argv[0]);
         return 1;
     }
 
-    if (logger_init("logs/signal_log.csv", "db/signal_log.db") != 0) {
-        fprintf(stderr, "[-] Logger initialization failed.\n");
+    const char *mode = argv[2] ? argv[2] : "";
+
+    if (strcmp(argv[1], "--mode") != 0 || 
+        (strcmp(mode, "quick") != 0 && strcmp(mode, "general") != 0)) {
+        fprintf(stderr, "[!] Invalid arguments. Expected: --mode [quick|general]\n");
         return 1;
     }
 
-    device_t dev = {0};
-    if (init_device(&dev, config.device_index) != 0) {
-        fprintf(stderr, "[-] Failed to initialize HackRF device.\n");
-        logger_close();
+    // Phase: Device Initialization
+    if (!init_device()) {
+        fprintf(stderr, "[!] HackRF device initialization failed.\n");
         return 1;
     }
 
-    for (uint64_t freq = config.start_freq; freq <= config.end_freq; freq += config.step_hz) {
-        scan_frequency(&dev, freq, config.dwell_ms, &config);
+    // Phase: Band Filtering Setup
+    load_excluded_bands("data/bands_excluded.txt");
+
+    // Phase: Scanning Execution
+    if (strcmp(mode, "quick") == 0) {
+        printf("[*] Starting QuickScan...\n");
+        run_quick_scan();
+    } else if (strcmp(mode, "general") == 0) {
+        printf("[*] Starting FullScan...\n");
+        run_full_scan();
     }
 
-    logger_close();
+    // Phase: Cleanup
+    shutdown_device();
+
     return 0;
 }
