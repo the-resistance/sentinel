@@ -1,4 +1,4 @@
-// config.h — Sentinel Global Configuration
+// config.h — Sentinel Configuration Constants
 // Version: 1.0.3
 
 #ifndef CONFIG_H
