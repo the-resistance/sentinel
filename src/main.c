@@ -1,4 +1,4 @@
-// src/main.c — Sentinel RF Scanner Entry Point
+\// main.c — Sentinel RF Scanner Entry Point
 // Version: 1.0.3
 // Author: Kevin / System Architect
 
