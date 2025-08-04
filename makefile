@@ -7,7 +7,7 @@
 # ─────────────────────────────────────────────
 
 CC = gcc
-CFLAGS = -Wall -Wextra -O2 -std=c11 -Isrc
+CFLAGS = -Wall -Wextra -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc
 LDFLAGS = -lm -lsqlite3 -lhackrf
 BIN_DIR = bin
 SRC_DIR = src
