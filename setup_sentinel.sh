@@ -8,10 +8,11 @@
 #              Sentinel and applies permissions.
 # ─────────────────────────────────────────────
 
-set -e  # Exit immediately on error
+set -e  # Exit immediately on any failure
 
-echo "[*] Updating system package index (blocking)..."
-apt-get update -y && echo "[✔] apt-get update completed."
+echo "[*] Updating package index..."
+apt-get update -y
+echo "[*] Package index update complete."
 
 echo "[*] Installing required packages..."
 apt-get install -y \
@@ -30,20 +31,21 @@ apt-get install -y \
   htop \
   binutils \
   file \
-  findutils && echo "[✔] Package install completed."
+  findutils
+echo "[*] Package installation complete."
 
-echo "[*] Ensuring script permissions are set..."
+echo "[*] Setting script execution permissions..."
 chmod +x run-monitor.sh scripts/*.sh db/*.sh
 
-echo "[*] Creating runtime directories if missing..."
+echo "[*] Creating runtime directories..."
 mkdir -p logs captures bin db data scripts
 
-echo "[*] Building Sentinel binary..."
+echo "[*] Compiling Sentinel binary..."
 make clean && make build
 
 if [ $? -eq 0 ]; then
-  echo "[✔] Build complete: bin/sentinel_v1.0.1.out"
+  echo "[*] Build successful: bin/sentinel_v1.0.1.out"
 else
-  echo "[✘] Build failed. Check output."
+  echo "[!] Build failed. Check output."
   exit 1
 fi
