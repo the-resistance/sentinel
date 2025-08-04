@@ -4,9 +4,8 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
+#include <stdlib.h>     // rand()
+#include <unistd.h>     // usleep()
 #include "device.h"
 #include "signal_processor.h"
 #include "logger.h"
