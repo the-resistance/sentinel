@@ -21,6 +21,7 @@ OBJS = \
   $(SRC_DIR)/scanner.o \
   $(SRC_DIR)/matcher.o \
   $(SRC_DIR)/uuid_utils.o \
+  $(SRC_DIR)/version.o \
   $(SRC_DIR)/sweep.o \
   $(SRC_DIR)/signal_map.o
 
