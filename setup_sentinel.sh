@@ -1,95 +1,68 @@
 #!/bin/bash
-
-# setup_sentinel.sh — Environment bootstrap for Sentinel RF Scanner
-# Version: 1.0.2
+# setup_sentinel.sh — Sentinel Environment Setup Script
+# Version: 1.0.3
 # Author: Kevin / System Architect
+# Description:
+#   Initializes /root/sentinel environment:
+#   - Fixes dpkg, updates APT
+#   - Installs RF/GSM dependencies
+#   - Injects fallback headers
+#   - Initializes directories, permissions, DB
+
+set -e
 
 echo "[*] Step 1: Update APT index"
 apt-get update
 
 echo "[*] Step 2: Repairing dpkg state (if broken)"
-apt-get install -f -y
-dpkg --configure -a
+apt-get install -f -y || true
+dpkg --configure -a || true
 
 echo "[*] Step 3: Auto-clone Git repo if not present"
 if [ ! -d /root/sentinel ]; then
-  git clone https://github.com/the-resistance/sentinel.git /root/sentinel
+  git clone https://github.com/the-resistance/sentinel /root/sentinel
 fi
-cd /root/sentinel || exit 1
+
+cd /root/sentinel
 
 echo "[*] Step 4: Installing core packages for HackRF, PCAP, analysis"
-PACKAGES=(
-  build-essential
-  libsqlite3-dev
-  libpcap-dev
-  libhackrf-dev
-  libncurses-dev
-  hackrf
-  jq
-  htop
-  sqlite3
-  tshark
-  wireshark
-)
 
-for pkg in "${PACKAGES[@]}"; do
-  if dpkg -s "$pkg" &>/dev/null; then
-    echo "[=] $pkg already installed — skipping"
-  else
-    echo "[+] Installing: $pkg"
-    apt-get install -y "$pkg"
-  fi
-done
+apt-get install -y \
+  build-essential \
+  libsqlite3-dev \
+  libpcap-dev \
+  libhackrf-dev \
+  libncurses-dev \
+  hackrf \
+  jq \
+  htop \
+  sqlite3 \
+  tshark \
+  wireshark || true
 
-echo "[*] Step 5: Inject fallback headers if missing"
-mkdir -p /usr/include/linux
+echo "[*] Step 5: Installing GSM tooling"
+apt-get install -y \
+  gr-gsm \
+  libosmocore || true
+
+echo "[*] Step 6: Inject fallback headers if missing"
+mkdir -p /usr/include/linux/
 if [ ! -f /usr/include/linux/prctl.h ]; then
   echo "[!] Missing header prctl.h — injecting stub"
-  echo "// stub prctl.h" > /usr/include/linux/prctl.h
-  echo "#define PR_SET_NAME 15" >> /usr/include/linux/prctl.h
-  echo "#define PR_GET_NAME 16" >> /usr/include/linux/prctl.h
+  echo -e "#pragma once\n#define PR_SET_NAME 15\n#define PR_GET_NAME 16" > /usr/include/linux/prctl.h
 fi
 
-echo "[*] Step 6: Creating runtime directories"
+echo "[*] Step 7: Creating runtime directories"
 mkdir -p logs captures db data scripts bin
 
-echo "[*] Step 7: Enforcing permissions on sensitive paths"
-find . -type f -name "*.sh" -exec chmod +x {} \;
-chmod +x run_monitor.sh
-chmod +x db/init_db.sh
+echo "[*] Step 8: Enforcing permissions on sensitive paths"
+find . -type f -iname "*.sh" -exec chmod +x {} \;
+chmod +x run-monitor.sh
 
-echo "[*] Step 8: Initializing signal database (if not present)"
+echo "[*] Step 9: Initializing signal database (if not present)"
 if [ ! -f db/signal_log.db ]; then
-  ./db/init_db.sh
+  chmod +x db/init_db.sh
+  ./db/init_db.sh || echo "[!] DB init failed — please check manually"
 fi
 
-# ─────────────────────────────────────────────────────────────
-# Step 9: Optional — Install GSM Signal Analysis Tools
-# Description: Adds support for GSM sniffing, IMSI capture, Kalibrate offset testing
-# ─────────────────────────────────────────────────────────────
-
-if [[ "$1" == "--enable-gsm" ]]; then
-  echo "[*] Step 9: Enabling GSM toolchain"
-
-  echo "[=] Installing gr-gsm, libosmocore..."
-  apt-get install -y gr-gsm libosmocore
-
-  echo "[=] Cloning and building kalibrate-hackrf..."
-  cd /opt || exit 1
-
-  if [ ! -d kalibrate-hackrf ]; then
-    git clone https://github.com/scateu/kalibrate-hackrf.git
-  fi
-
-  cd kalibrate-hackrf || exit 1
-  apt-get install -y libtool libfftw3-dev autoconf automake
-
-  ./bootstrap && ./configure && make && make install
-
-  echo "[*] GSM stack installed."
-  cd /root/sentinel || exit 1
-else
-  echo "[=] GSM toolchain not enabled (pass --enable-gsm to setup)"
-fi
-
-echo "[✔] Sentinel setup complete."
+echo "[✔] Sentinel environment setup complete."
