@@ -1,52 +1,18 @@
-# ─────────────────────────────────────────────
-# Filename:    makefile
-# Version:     v1.0.1
-# Author:      Kevin / System Architect
-# Description: Compiles Sentinel RF scanner suite
-#              with SQLite3 logging and HackRF backend.
-# ─────────────────────────────────────────────
-
-CC = gcc
-CFLAGS = -Wall -Wextra -O2 -std=c11 -D_POSIX_C_SOURCE=200809L -Isrc
-LDFLAGS = -lm -lsqlite3 -lhackrf
+CC ?= cc
+CFLAGS ?= -Wall -Wextra -Werror -O2 -std=c11
 BIN_DIR = bin
-SRC_DIR = src
+TARGET = $(BIN_DIR)/sentinel.out
 
-OBJS = \
-  $(SRC_DIR)/main.o \
-  $(SRC_DIR)/logger.o \
-  $(SRC_DIR)/device.o \
-  $(SRC_DIR)/signal_processor.o \
-  $(SRC_DIR)/band_filter.o \
-  $(SRC_DIR)/scanner.o \
-  $(SRC_DIR)/matcher.o \
-  $(SRC_DIR)/uuid_utils.o \
-  $(SRC_DIR)/version.o \
-  $(SRC_DIR)/sweep.o \
-  $(SRC_DIR)/signal_map.o
-
-TARGET = $(BIN_DIR)/sentinel_v1.0.1.out
-
-.PHONY: all clean build dashboard
-
+.PHONY: all build clean dashboard
 all: build
-
-build: $(TARGET)
-
-$(TARGET): $(OBJS)
+build: $(TARGET) $(BIN_DIR)/sentinel_v1.0.1.out
+$(TARGET): src/main.c
 	@mkdir -p $(BIN_DIR)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
-
-$(SRC_DIR)/%.o: $(SRC_DIR)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-dashboard: $(BIN_DIR)/rfdash
-
-$(BIN_DIR)/rfdash: rfdash.c
-	@mkdir -p $(BIN_DIR)
-	$(CC) -o $@ rfdash.c -lncurses
-
+	$(CC) $(CFLAGS) -o $@ $<
+$(BIN_DIR)/sentinel_v1.0.1.out: $(TARGET)
+	cp $(TARGET) $@
+dashboard:
+	@echo "Legacy dashboard has no unified data producer. Use Sentinel-RF/sentinel.py report."
 clean:
-	rm -f $(SRC_DIR)/*.o
-	rm -f $(TARGET)
-	rm -f $(BIN_DIR)/rfdash
+	rm -f $(TARGET) $(BIN_DIR)/sentinel_v1.0.1.out
+
