@@ -1,0 +1,60 @@
+CC ?= cc
+CPPFLAGS ?=
+CFLAGS ?= -O2 -g -std=c11 -Wall -Wextra -Werror -Wpedantic
+LDFLAGS ?=
+SQLITE_LIBS ?= -lsqlite3
+BACKEND ?= hackrf
+SOURCES = src/main.c src/native/util.c src/native/log.c src/native/csv.c src/native/dsp.c src/native/db.c src/native/capture.c src/native/live.c
+CORE = src/native/util.c src/native/log.c src/native/csv.c src/native/dsp.c src/native/db.c src/native/capture.c
+HEADERS = src/native/sentinel.h
+ifeq ($(BACKEND),hackrf)
+BACKEND_FLAGS = -DSN_WITH_HACKRF
+BACKEND_LIBS = -lhackrf -pthread
+RECEIVER_TEST = bin/test_receiver
+RECEIVER_CHECK = ./bin/test_receiver
+else ifeq ($(BACKEND),offline)
+BACKEND_FLAGS =
+BACKEND_LIBS =
+else
+$(error BACKEND must be hackrf or offline)
+endif
+.PHONY: all build test benchmark package sanitize clean FORCE
+all: build
+build: bin/sentinel bin/sentinel.out bin/sentinel_v1.0.1.out
+bin/sentinel: $(SOURCES) src/native/receiver.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) $(BACKEND_FLAGS) $(SOURCES) src/native/receiver.c $(LDFLAGS) $(SQLITE_LIBS) $(BACKEND_LIBS) -lm -o $@
+bin/sentinel.out bin/sentinel_v1.0.1.out: bin/sentinel
+	cp bin/sentinel $@
+bin/test_core: tests/test_core.c $(CORE) tests/fake_receiver.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) tests/test_core.c $(CORE) tests/fake_receiver.c $(LDFLAGS) $(SQLITE_LIBS) -lm -o $@
+bin/test_sentinel: $(SOURCES) tests/fake_receiver.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) -DSN_TEST_BUILD $(SOURCES) tests/fake_receiver.c $(LDFLAGS) $(SQLITE_LIBS) -lm -o $@
+bin/test_receiver: tests/test_receiver.c src/native/receiver.c src/native/util.c src/native/log.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) -DSN_WITH_HACKRF tests/test_receiver.c src/native/receiver.c src/native/util.c src/native/log.c $(LDFLAGS) -pthread -lm -o $@
+bin/test_logging: tests/test_logging.c src/native/log.c src/native/util.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) tests/test_logging.c src/native/log.c src/native/util.c $(LDFLAGS) -lm -o $@
+bin/sentinel_bench: tests/benchmark.c $(CORE) tests/fake_receiver.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) tests/benchmark.c $(CORE) tests/fake_receiver.c $(LDFLAGS) $(SQLITE_LIBS) -lm -o $@
+benchmark: bin/sentinel_bench
+	./bin/sentinel_bench
+test: build bin/test_core bin/test_sentinel bin/test_logging $(RECEIVER_TEST)
+	./bin/test_core
+	./bin/test_logging 2>bin/logger-test.stderr || { tail -n 4 bin/logger-test.stderr >&2; exit 1; }
+	$(RECEIVER_CHECK)
+	bash tests/integration.sh
+package: test bin/sentinel_bench
+	@mkdir -p dist
+	@{ printf 'Sentinel native C build\n'; git rev-parse HEAD 2>/dev/null || printf 'source_commit=unavailable\n'; $(CC) --version; uname -srm; } >dist/BUILD.txt
+	sha256sum bin/sentinel bin/test_core bin/test_sentinel bin/test_logging $(RECEIVER_TEST) bin/sentinel_bench >dist/SHA256SUMS
+	tar -czf dist/sentinel-linux-$$(uname -m).tar.gz dist/BUILD.txt dist/SHA256SUMS bin/sentinel bin/test_core bin/test_sentinel bin/test_logging $(RECEIVER_TEST) bin/sentinel_bench tests/integration.sh tests/performance.sh tests/run-suite.sh README.md CHANGELOG.md docs/TESTING.md
+sanitize:
+	$(MAKE) -f Makefile.native test BACKEND=$(BACKEND) CFLAGS='-O1 -g -std=c11 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='$(LDFLAGS) -fsanitize=address,undefined'
+clean:
+	rm -f bin/sentinel bin/sentinel.out bin/sentinel_v1.0.1.out bin/test_core bin/test_sentinel bin/test_receiver bin/test_logging bin/sentinel_bench
+FORCE:
