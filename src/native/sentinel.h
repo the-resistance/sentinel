@@ -7,14 +7,26 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-#define SN_VERSION "0.2.0-c"
+#define SN_VERSION "0.3.0-c"
 #define SN_MAX_BINS 4000000u
 #define SN_PATH 4096
 extern volatile sig_atomic_t sn_cancelled;
 extern char sn_error[512];
+#if defined(__GNUC__) || defined(__clang__)
+#define SN_PRINTF(a,b) __attribute__((format(printf,a,b)))
+#else
+#define SN_PRINTF(a,b)
+#endif
+enum { SN_LOG_ERROR, SN_LOG_WARN, SN_LOG_INFO, SN_LOG_DEBUG, SN_LOG_TRACE };
+int sn_log_level(const char *name);
+void sn_log_init(int level);
+int sn_log_open(const char *path);
+void sn_log(int level,const char *component,const char *format,...) SN_PRINTF(3,4);
+int sn_log_close(void);
+double sn_log_elapsed(void);
 FILE *sn_open_regular(const char *path);
-int sn_fail(const char *format,...);
-int sn_path(char *out,size_t n,const char *format,...);
+int sn_fail(const char *format,...) SN_PRINTF(1,2);
+int sn_path(char *out,size_t n,const char *format,...) SN_PRINTF(3,4);
 int sn_mkdirs(const char *path);
 int sn_id(char out[33]);
 double sn_clock(void);
@@ -22,10 +34,10 @@ int sn_utc(char out[40]);
 void sn_json(FILE *stream,const char *text);
 int sn_atomic(FILE *stream,const char *temporary,const char *final);
 typedef struct {
- const char *command,*workdir,*replay,*input,*captures_dir,*serial;
+ const char *command,*workdir,*replay,*input,*captures_dir,*serial,*log_file;
  double start,stop,bin_hz,margin,timeout,duration,sample_rate,frequency;
  unsigned sweeps,lna,vga,max_targets;
- int capture;
+ int capture,log_level;
 } SnConfig;
 typedef struct { double low,width,power; } SnBin;
 typedef struct { char timestamp[40]; double low,high,width; unsigned samples; double *power; size_t count; } SnRow;

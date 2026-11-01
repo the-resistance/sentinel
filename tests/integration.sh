@@ -19,11 +19,23 @@ expect() {
  checks=$((checks+1))
 }
 "$ROOT/bin/test_core" --fixture "$TEMP/fixtures"
-expect 0 env PATH=/nonexistent "$REAL" run --replay "$TEMP/fixtures/sweep.csv" --captures-dir "$TEMP/fixtures" --workdir "$TEMP/results with spaces"
+expect 0 env PATH=/nonexistent "$REAL" run --log-level trace --replay "$TEMP/fixtures/sweep.csv" --captures-dir "$TEMP/fixtures" --workdir "$TEMP/results with spaces"
 grep -q '"state":"complete"' "$TEMP/results with spaces"/runs/*/run.json
 grep -q '1325000.000000000,10000.000000000' "$TEMP/results with spaces"/runs/*/spectrum_report.csv
 grep -q ',2,-25.000000000' "$TEMP/results with spaces"/runs/*/spectrum_report.csv
 grep -q '"samples_analyzed":16384' "$TEMP/results with spaces"/runs/*/analysis.jsonl
+grep -q '"component":"sweep"' "$TEMP/results with spaces"/runs/*/diagnostics.jsonl
+grep -q '"level":"trace"' "$TEMP/results with spaces"/runs/*/diagnostics.jsonl
+grep -q '"component":"finished"' "$TEMP/results with spaces"/runs/*/diagnostics.jsonl
+expect 2 "$REAL" doctor --log-level invalid
+expect 0 "$REAL" doctor -vv --log-file "$TEMP/doctor.jsonl"
+grep -q '"component":"startup"' "$TEMP/doctor.jsonl"
+expect 1 "$REAL" doctor --log-file "$TEMP/missing/log.jsonl"
+expect 1 "$REAL" doctor --log-file /dev/full
+mkfifo "$TEMP/diagnostic-pipe"
+expect 1 "$REAL" doctor --log-file "$TEMP/diagnostic-pipe"
+expect 0 "$REAL" run --replay "$TEMP/fixtures/sweep.csv" --log-level error --workdir "$TEMP/error-only"
+for diagnostic in "$TEMP/error-only"/runs/*/diagnostics.jsonl; do [[ ! -s "$diagnostic" ]]; done
 expect 0 "$REAL" report --workdir "$TEMP/results with spaces"
 expect 0 "$REAL" analyze --input "$TEMP/fixtures/tone.cs8" --workdir "$TEMP/analysis"
 cat "$TEMP/fixtures/sweep.csv" "$TEMP/fixtures/sweep.csv" >"$TEMP/backwards.csv"
@@ -43,6 +55,7 @@ expect 1 "$REAL" run --replay "$TEMP/empty.csv" --workdir "$TEMP/empty"
 cp "$TEMP/fixtures/sweep.csv" "$TEMP/bad.csv"; printf 'bad\n' >>"$TEMP/bad.csv"
 expect 2 "$REAL" run --replay "$TEMP/bad.csv" --workdir "$TEMP/partial"
 grep -q '"state":"partial"' "$TEMP/partial"/runs/*/run.json
+grep -q 'rejected line=' "$TEMP/partial"/runs/*/diagnostics.jsonl
 expect 1 env SN_TEST_OPEN_FAIL=1 "$TEST" run --workdir "$TEMP/open-failure"
 expect 1 env SN_TEST_READ_FAIL=1 "$TEST" scan --workdir "$TEMP/read-failure" --sweeps 1
 expect 1 env SN_TEST_CLOSE_FAIL=1 "$TEST" scan --workdir "$TEMP/close-failure" --start-mhz 902 --stop-mhz 918 --sweeps 1

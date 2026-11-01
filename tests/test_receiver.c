@@ -34,6 +34,7 @@ int hackrf_stop_rx(hackrf_device *device) { (void)device; return mode==STOP_FAIL
 int hackrf_is_streaming(hackrf_device *device) { (void)device; return HACKRF_TRUE; }
 const char *hackrf_error_name(enum hackrf_error error) { (void)error; return "injected libhackrf error"; }
 int main(void) {
+ sn_log_init(SN_LOG_TRACE);
  SnConfig config={.lna=16,.vga=20}; SnReceiver *receiver=NULL;
  mode=OPEN_FAIL; assert(sn_receiver_open(&receiver,&config)<0&&receiver==NULL);
  for(mode=NORMAL;mode<=STALL;++mode) {

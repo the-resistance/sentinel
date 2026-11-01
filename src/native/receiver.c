@@ -19,8 +19,12 @@ static int callback(hackrf_transfer *transfer) {
  atomic_store_explicit(&r->received,position+count,memory_order_release);
  pthread_mutex_unlock(&r->copy_lock); return 0;
 }
-static int check(int status,const char *operation) { return status==HACKRF_SUCCESS?0:sn_fail("%s: %s (%d)",operation,hackrf_error_name((enum hackrf_error)status),status); }
+static int check(int status,const char *operation) {
+ sn_log(status==HACKRF_SUCCESS?SN_LOG_TRACE:SN_LOG_ERROR,"libhackrf","operation=%s status=%d name=%s",operation,status,hackrf_error_name((enum hackrf_error)status));
+ return status==HACKRF_SUCCESS?0:sn_fail("%s: %s (%d)",operation,hackrf_error_name((enum hackrf_error)status),status);
+}
 int sn_receiver_open(SnReceiver **out,const SnConfig *c) {
+ sn_log(SN_LOG_DEBUG,"receiver","open lna=%u vga=%u serial_selection=%s rf_amp=0 antenna_power=0",c->lna,c->vga,c->serial?"explicit":"default");
  *out=NULL; SnReceiver *r=calloc(1,sizeof(*r)); if(!r) return sn_fail("receiver allocation failed");
  atomic_init(&r->received,0); atomic_init(&r->callback_error,0);
  if(pthread_mutex_init(&r->copy_lock,NULL)) { free(r); return sn_fail("receiver mutex initialization failed"); }
@@ -30,6 +34,8 @@ int sn_receiver_open(SnReceiver **out,const SnConfig *c) {
  *out=r; return 0;
 }
 int sn_receiver_read(SnReceiver *r,uint64_t frequency,double sr,int8_t *buffer,size_t count,double timeout) {
+ double began=sn_clock();
+ sn_log(SN_LOG_DEBUG,"receiver","receive center_hz=%llu rate_hz=%.0f pairs=%zu timeout_s=%.3f",(unsigned long long)frequency,sr,count,timeout);
  if(!r||!buffer||!count||r->unusable) return sn_fail("invalid receive request or receiver requires reopen");
  if(check(hackrf_set_sample_rate(r->device,sr),"set sample rate")||check(hackrf_set_freq(r->device,frequency),"tune frequency")) return -1;
  pthread_mutex_lock(&r->copy_lock);
@@ -49,6 +55,7 @@ int sn_receiver_read(SnReceiver *r,uint64_t frequency,double sr,int8_t *buffer,s
  pthread_mutex_lock(&r->copy_lock); r->buffer=NULL; pthread_mutex_unlock(&r->copy_lock);
  r->streaming=stopped!=HACKRF_SUCCESS; r->unusable=r->streaming;
  if(!error&&check(stopped,"stop receive")) error=-1;
+ sn_log(error?SN_LOG_ERROR:SN_LOG_DEBUG,"receiver","receive end received=%zu wanted=%zu elapsed_ms=%.3f stop_status=%d interrupted=%d error=%s",atomic_load(&r->received),count,1000*(sn_clock()-began),stopped,(int)sn_cancelled,error?sn_error:"");
  return error;
 }
 int sn_receiver_close(SnReceiver *r) {
@@ -56,6 +63,7 @@ int sn_receiver_close(SnReceiver *r) {
  int error=0; if(r->streaming&&check(hackrf_stop_rx(r->device),"stop receive")) error=-1;
  if(check(hackrf_close(r->device),"close receiver")) error=-1;
  if(check(hackrf_exit(),"hackrf_exit")) error=-1;
+ sn_log(error?SN_LOG_ERROR:SN_LOG_DEBUG,"receiver","close status=%s",error?"failed":"ok");
  pthread_mutex_destroy(&r->copy_lock); free(r); return error;
 }
 const char *sn_receiver_backend(void) { return "libhackrf"; }

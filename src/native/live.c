@@ -8,12 +8,15 @@ int sn_live(SnDb *db,const SnConfig *c,SnStats *stats) {
  while(nfft<16384&&sr/(double)nfft>c->bin_hz) nfft*=2;
  size_t edge=nfft/8,kept=nfft-2*edge,samples=nfft*8;
  double width=sr/(double)nfft,usable=(double)kept*width;
+ sn_log(SN_LOG_INFO,"survey","sample_rate_hz=%.0f fft=%zu actual_bin_hz=%.3f tile_span_hz=%.0f settle_pairs=32768",sr,nfft,width,usable);
  int8_t *raw=malloc(samples*2); double *power=malloc(nfft*sizeof(*power)); int error=0;
  if(!raw||!power) { error=sn_fail("live scan allocation failed"); goto done; }
  for(unsigned pass=0;!sn_cancelled&&(!c->sweeps||pass<c->sweeps);++pass) {
   SnSweep sweep={0}; if(sn_utc(sweep.timestamp)) { error=-1; break; }
   for(double tile=c->start;tile<c->stop&&!sn_cancelled;tile+=usable) {
    double center=fmin(6e9,fmax(1e6,tile+usable/2+width/2));
+   double began=sn_clock();
+   sn_log(SN_LOG_DEBUG,"tile","pass=%u center_hz=%.0f pairs=%zu",pass+1,center,samples);
    if(sn_receiver_read(receiver,(uint64_t)llround(center),sr,raw,samples,c->timeout)||sn_cancelled) { error=sn_cancelled?0:-1; break; }
    if(sn_psd(raw,samples,nfft,power)) { error=-1; break; }
    double *levels=malloc(kept*sizeof(*levels)); if(!levels) { error=sn_fail("tile allocation failed"); break; }
@@ -27,6 +30,7 @@ int sn_live(SnDb *db,const SnConfig *c,SnStats *stats) {
    if(used>=capacity) error=sn_fail("spectral row exceeds buffer");
    else if(sn_db_raw(db,&row,csv)<0||sn_sweep_append(&sweep,&row,c->start,c->stop)) error=-1;
    else ++stats->rows;
+   sn_log(SN_LOG_TRACE,"tile","center_hz=%.0f elapsed_ms=%.3f status=%s",center,1000*(sn_clock()-began),error?"failed":"ok");
    free(csv); free(levels); if(error) break;
   }
   if(!error&&!sn_cancelled) error=sn_flush(db,c,stats,&sweep);

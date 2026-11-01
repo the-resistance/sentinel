@@ -20,11 +20,12 @@ static void usage(FILE *f) {
  "Options: --workdir DIR --start-mhz N --stop-mhz N --bin-hz N --margin-db N\n"
  "         --sweeps N --timeout seconds --lna N --vga N --serial ID\n"
  "         --sample-rate Hz --duration seconds --max-targets N --captures-dir DIR\n"
+ "         -v/--verbose --log-level error|warn|info|debug|trace --log-file FILE\n"
  "Exit: 0 complete, 1 operational failure, 2 partial/invalid arguments, 130 interrupted.\n",SN_VERSION);
 }
 static int numeric(const char *text,double *out) { char *end; errno=0; *out=strtod(text,&end); return errno||end==text||*end||!isfinite(*out)?-1:0; }
 static int parse(int argc,char **argv,SnConfig *c) {
- *c=(SnConfig){.command=argc>1?argv[1]:"",.workdir="runtime",.start=1e6,.stop=6e9,.bin_hz=100000,.margin=10,.timeout=10,.duration=1,.sample_rate=argc>1&&!strcmp(argv[1],"analyze")?0:8000000,.sweeps=3,.lna=16,.vga=20,.max_targets=10};
+ *c=(SnConfig){.command=argc>1?argv[1]:"",.workdir="runtime",.start=1e6,.stop=6e9,.bin_hz=100000,.margin=10,.timeout=10,.duration=1,.sample_rate=argc>1&&!strcmp(argv[1],"analyze")?0:8000000,.sweeps=3,.lna=16,.vga=20,.max_targets=10,.log_level=SN_LOG_INFO};
  if(argc<2) return sn_fail("a command is required");
  if(!strcmp(argv[1],"--help")||!strcmp(argv[1],"-h")) { usage(stdout); return 1; }
  if(strcmp(c->command,"run")&&strcmp(c->command,"scan")&&strcmp(c->command,"analyze")&&strcmp(c->command,"capture")&&strcmp(c->command,"report")&&strcmp(c->command,"doctor")) return sn_fail("unknown command");
@@ -33,11 +34,14 @@ static int parse(int argc,char **argv,SnConfig *c) {
   {"start-mhz",1,0,'a'},{"stop-mhz",1,0,'b'},{"bin-hz",1,0,'n'},{"margin-db",1,0,'m'},
   {"sweeps",1,0,'s'},{"timeout",1,0,'t'},{"lna",1,0,'l'},{"vga",1,0,'g'},
   {"duration",1,0,'d'},{"sample-rate",1,0,'f'},{"freq-mhz",1,0,'q'},{"max-targets",1,0,'x'},
-  {"serial",1,0,'z'},{"captures-dir",1,0,'p'},{"help",0,0,'h'},{0,0,0,0}};
+  {"serial",1,0,'z'},{"captures-dir",1,0,'p'},{"log-level",1,0,'V'},{"log-file",1,0,'L'},{"verbose",0,0,'v'},{"help",0,0,'h'},{0,0,0,0}};
  optind=1; opterr=0; int opt;
- while((opt=getopt_long(argc-1,argv+1,"",opts,NULL))!=-1) {
+ while((opt=getopt_long(argc-1,argv+1,"v",opts,NULL))!=-1) {
   double value=0; if(strchr("abnmstlgdfqx",opt)&&numeric(optarg,&value)) return sn_fail("invalid numeric argument: %s",optarg);
   switch(opt) {
+   case 'V': c->log_level=sn_log_level(optarg); if(c->log_level<0) return sn_fail("log level must be error, warn, info, debug or trace"); break;
+   case 'L': c->log_file=optarg; break;
+   case 'v': if(c->log_level<SN_LOG_TRACE) ++c->log_level; break;
    case 'w': c->workdir=optarg; break; case 'r': c->replay=optarg; break;
    case 'i': c->input=optarg; break; case 'c': c->capture=1; break;
    case 'p': c->captures_dir=optarg; break; case 'z': c->serial=optarg; break;
@@ -71,7 +75,7 @@ static int manifest(const char *dir,const char *state,const char *phase,const ch
  if(sn_path(final,sizeof(final),"%s/run.json",dir)||sn_path(temporary,sizeof(temporary),"%s.tmp",final)) return -1;
  FILE *f=fopen(temporary,"w"); if(!f) return sn_fail("create manifest: %s",strerror(errno));
  fprintf(f,"{\"version\":\"%s\",\"runtime\":\"native_c\",\"session_id\":\"%s\",\"state\":",SN_VERSION,db->session); sn_json(f,state);
- fprintf(f,",\"phase\":"); sn_json(f,phase); fprintf(f,",\"detail\":"); sn_json(f,detail);
+ fprintf(f,",\"elapsed_ms\":%.3f,\"phase\":",sn_log_elapsed()); sn_json(f,phase); fprintf(f,",\"detail\":"); sn_json(f,detail);
  fprintf(f,",\"rows\":%zu,\"input_errors\":%zu,\"sweeps\":%zu,\"events\":%zu,\"captures_analyzed\":%zu,\"capture_errors\":%zu}\n",s->rows,s->errors,s->sweeps,s->events,s->captures,s->capture_errors);
  return sn_atomic(f,temporary,final);
 }
@@ -90,17 +94,23 @@ int main(int argc,char **argv) {
  SnConfig c; int result=parse(argc,argv,&c);
  if(result>0) return 0;
  if(result<0) { fprintf(stderr,"Sentinel: %s\n",sn_error); return 2; }
- if(!strcmp(c.command,"doctor")) { printf("{\"version\":\"%s\",\"runtime\":\"native_c\",\"backend\":\"%s\",\"sqlite\":\"%s\",\"hardware_tested\":false}\n",SN_VERSION,sn_receiver_backend(),sqlite3_libversion()); return fflush(stdout)?1:0; }
+ sn_log_init(c.log_level);
+ if(c.log_file&&sn_log_open(c.log_file)) { fprintf(stderr,"Sentinel: %s\n",sn_error); return 1; }
+ sn_log(SN_LOG_INFO,"startup","version=%s backend=%s command=%s start_hz=%.0f stop_hz=%.0f bin_hz=%.3f margin_db=%.3f sweeps=%u lna=%u vga=%u",SN_VERSION,sn_receiver_backend(),c.command,c.start,c.stop,c.bin_hz,c.margin,c.sweeps,c.lna,c.vga);
+ if(!strcmp(c.command,"doctor")) { printf("{\"version\":\"%s\",\"runtime\":\"native_c\",\"backend\":\"%s\",\"sqlite\":\"%s\",\"hardware_tested\":false}\n",SN_VERSION,sn_receiver_backend(),sqlite3_libversion()); int bad=fflush(stdout); if(sn_log_close()) bad=1; return bad?1:0; }
  SnDb db={0}; SnStats stats={0}; int error=0,lock=-1; FILE *events=NULL,*analysis=NULL;
  char database[SN_PATH],directory[SN_PATH]="",path[SN_PATH],temporary[SN_PATH],detail[512]="";
  const char *phase="startup",*state="failed";
  if(sn_path(database,sizeof(database),"%s/sentinel.sqlite",c.workdir)) goto failed;
- if(!strcmp(c.command,"report")) { if(sn_db_open(&db,database,1)||sn_db_report(&db,stdout,0)) { sn_db_close(&db); goto failed; } sn_db_close(&db); return fflush(stdout)?1:0; }
+ if(!strcmp(c.command,"report")) { if(sn_db_open(&db,database,1)||sn_db_report(&db,stdout,0)) { sn_db_close(&db); goto failed; } sn_db_close(&db); int bad=fflush(stdout); if(sn_log_close()) bad=1; return bad?1:0; }
  if(sn_mkdirs(c.workdir)||sn_db_open(&db,database,0)||sn_db_start(&db,&c)) goto failed;
  if(sn_path(directory,sizeof(directory),"%s/runs/%s",c.workdir,db.session)||sn_mkdirs(directory)||manifest(directory,"running",phase,"",&db,&stats)) goto failed;
+ if(!c.log_file) { if(sn_path(path,sizeof(path),"%s/diagnostics.jsonl",directory)||sn_log_open(path)) goto failed; }
+ sn_log(SN_LOG_INFO,"session","session=%s workdir=%s",db.session,c.workdir);
+ sn_log(SN_LOG_INFO,"config","version=%s backend=%s command=%s start_hz=%.0f stop_hz=%.0f requested_bin_hz=%.3f margin_db=%.3f sweeps=%u capture=%d sample_rate_hz=%.0f duration_s=%.6f timeout_s=%.3f lna=%u vga=%u max_targets=%u log_level=%d",SN_VERSION,sn_receiver_backend(),c.command,c.start,c.stop,c.bin_hz,c.margin,c.sweeps,c.capture,c.sample_rate,c.duration,c.timeout,c.lna,c.vga,c.max_targets,c.log_level);
  if((!c.replay&&(!strcmp(c.command,"run")||!strcmp(c.command,"scan")))||!strcmp(c.command,"capture")) { lock=lock_receiver(); if(lock<0) goto failed; }
  if(!strcmp(c.command,"run")||!strcmp(c.command,"scan")) {
-  phase="scan"; if(sn_path(path,sizeof(path),"%s/events.jsonl",directory)) goto failed;
+  phase="scan"; sn_log(SN_LOG_INFO,"phase","scan begin mode=%s",c.replay?"replay":"live"); if(sn_path(path,sizeof(path),"%s/events.jsonl",directory)) goto failed;
   events=fopen(path,"w"); if(!events) { sn_fail("create event log: %s",strerror(errno)); goto failed; } db.events=events;
   error=c.replay?sn_replay(&db,&c,&stats):sn_live(&db,&c,&stats);
   if(error) goto failed;
@@ -108,10 +118,10 @@ int main(int argc,char **argv) {
   if(manifest(directory,"running","scan_complete","",&db,&stats)) goto failed;
  }
  if(c.capture||!strcmp(c.command,"capture")||c.captures_dir||!strcmp(c.command,"analyze")) {
-  phase="analysis"; if(sn_path(path,sizeof(path),"%s/analysis.jsonl",directory)) goto failed;
+  phase="analysis"; sn_log(SN_LOG_INFO,"phase","analysis begin"); if(sn_path(path,sizeof(path),"%s/analysis.jsonl",directory)) goto failed;
   analysis=fopen(path,"w"); if(!analysis) { sn_fail("create analysis log: %s",strerror(errno)); goto failed; }
   if(c.capture||!strcmp(c.command,"capture")) {
-   phase="capture"; double centers[1000]; size_t count=0;
+   phase="capture"; sn_log(SN_LOG_INFO,"phase","capture begin"); double centers[1000]; size_t count=0;
    if(!strcmp(c.command,"capture")) { centers[0]=c.frequency; count=1; } else if(sn_db_targets(&db,centers,c.max_targets,&count)) goto failed;
    SnReceiver *receiver=NULL; if(count&&sn_receiver_open(&receiver,&c)) goto failed;
    for(size_t i=0;i<count&&!sn_cancelled;++i) {
@@ -127,7 +137,7 @@ int main(int argc,char **argv) {
   if(c.input) { SnFeatures f; if(sn_analyze_file(c.input,&c.sample_rate,&c.frequency,&f)||sn_write_features(analysis,c.input,c.sample_rate,c.frequency,&f)) goto failed; ++stats.captures; }
  }
  if(sn_cancelled) goto cancelled;
- phase="report";
+ phase="report"; sn_log(SN_LOG_INFO,"phase","report begin");
  if(sn_path(path,sizeof(path),"%s/spectrum_report.csv",directory)||sn_path(temporary,sizeof(temporary),"%s.tmp",path)) goto failed;
  FILE *report=fopen(temporary,"w"); if(!report) { sn_fail("create report: %s",strerror(errno)); goto failed; }
  if(sn_db_report(&db,report,1)) { fclose(report); unlink(temporary); goto failed; }
@@ -136,9 +146,12 @@ int main(int argc,char **argv) {
 cancelled: state="interrupted"; result=130; goto done;
 failed: snprintf(detail,sizeof(detail),"%s",sn_error); state=sn_cancelled?"interrupted":"failed"; result=sn_cancelled?130:1;
 done:
+ sn_log(SN_LOG_INFO,"cleanup","begin state=%s phase=%s",state,phase);
  if(events&&fclose(events)) { snprintf(detail,sizeof(detail),"event log close failed"); state="failed"; result=1; }
  if(analysis&&fclose(analysis)) { snprintf(detail,sizeof(detail),"analysis log close failed"); state="failed"; result=1; }
  if(db.handle&&*db.session&&sn_db_finish(&db,state,detail)) { snprintf(detail,sizeof(detail),"%s",sn_error); state="failed"; result=1; }
+ sn_log(result==1?SN_LOG_ERROR:result?SN_LOG_WARN:SN_LOG_INFO,"finished","state=%s phase=%s exit=%d rows=%zu sweeps=%zu events=%zu captures=%zu input_errors=%zu capture_errors=%zu duration_ms=%.3f detail=%s",state,phase,result,stats.rows,stats.sweeps,stats.events,stats.captures,stats.errors,stats.capture_errors,sn_log_elapsed(),detail);
+ if(sn_log_close()) { snprintf(detail,sizeof(detail),"%s",sn_error); state="failed"; result=1; if(db.handle&&*db.session) sn_db_finish(&db,state,detail); }
  if(*directory&&manifest(directory,state,phase,detail,&db,&stats)) { fprintf(stderr,"Sentinel: final manifest unavailable: %s\n",sn_error); result=1; }
  sn_db_close(&db); if(lock>=0) { flock(lock,LOCK_UN); close(lock); }
  if(*detail) fprintf(stderr,"Sentinel: %s\n",detail);

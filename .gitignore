@@ -5,3 +5,4 @@ runtime/
 *.sqlite-wal
 *.partial
 __pycache__/
+dist/

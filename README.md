@@ -50,3 +50,7 @@ Exit codes: **0** complete, **1** operational failure, **2** partial results or 
 ## Validation and remaining gate
 
 `make test` checks parsing (including 2000 malformed strings), DSP fixtures, recurrence/SQLite behavior, CLI errors, partial outputs, interruption/lock cleanup, simulated scans/captures, and the real adapter against a controlled libhackrf API shim (start/stop failures, timeout and late callback). Production replay also runs with an empty executable search path. `make sanitize` adds AddressSanitizer/UndefinedBehaviorSanitizer. These checks do not replace live hardware validation. Before deployment, verify receiver open/configuration, narrow- and full-span scans against known emitters, gain/overload behavior, capture duration/metadata, USB disconnects and interrupt cleanup on the target machine.
+
+## Verbose diagnostics and executable test bundle
+
+Use `--log-level trace` (or `-vv`) for detailed operation/timing records. Each run writes rotating `diagnostics.jsonl`; `--log-file FILE` selects an explicit destination. `make benchmark` measures native CPU/SQLite throughput, `bash tests/run-suite.sh` runs correctness plus performance qualification, and `make package` creates an executable Linux test bundle. See [docs/TESTING.md](docs/TESTING.md) for metrics, output locations, logging limits and physical receiver checks. GitHub Actions uploads the Linux bundle and performance logs for each successful compiler job. Version history is in [CHANGELOG.md](CHANGELOG.md).

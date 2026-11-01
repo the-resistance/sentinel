@@ -18,6 +18,8 @@ static int numeric(const char *text,double *value) {
  return *end?-1:0;
 }
 int sn_analyze_file(const char *path,double *sample_rate,double *frequency,SnFeatures *features) {
+ sn_log(SN_LOG_DEBUG,"analysis","input=%s",path);
+ double began=sn_clock();
  memset(features,0,sizeof(*features));
  char meta[SN_PATH]; if(suffix(meta,sizeof(meta),path,".meta")) return -1;
  FILE *sidecar=sn_open_regular(meta); double declared=-1;
@@ -51,10 +53,13 @@ int sn_analyze_file(const char *path,double *sample_rate,double *frequency,SnFea
  int8_t *raw=malloc(samples*2); if(!raw) { fclose(input); return sn_fail("IQ allocation failed"); }
  int error=0; if(fread(raw,2,samples,input)!=samples) error=sn_fail("IQ read failed"); if(fclose(input)&&!error) error=sn_fail("IQ close failed");
  if(!error) error=sn_features(raw,samples,*sample_rate,features);
+ sn_log(error?SN_LOG_WARN:SN_LOG_DEBUG,"analysis","input=%s analyzed_pairs=%zu elapsed_ms=%.3f status=%s",path,samples,1000*(sn_clock()-began),error?"failed":"ok");
  free(raw); return error;
 }
 int sn_capture(SnReceiver *receiver,const SnConfig *c,double frequency,const char *directory,SnFeatures *features,char *path,size_t path_size) {
  if(!isfinite(c->sample_rate)||!isfinite(c->duration)||c->sample_rate<=0||c->duration<=0||c->sample_rate*c->duration>20000000||!isfinite(frequency)||frequency<1e6||frequency>6e9) return sn_fail("invalid capture parameters");
+ double began=sn_clock();
+ sn_log(SN_LOG_INFO,"capture","begin center_hz=%.0f sample_rate_hz=%.0f duration_s=%.6f",frequency,c->sample_rate,c->duration);
  size_t samples=(size_t)llround(c->sample_rate*c->duration); if(samples<4096) return sn_fail("capture too short");
  if(sn_mkdirs(directory)) return -1;
  struct statvfs disk;
@@ -73,6 +78,7 @@ int sn_capture(SnReceiver *receiver,const SnConfig *c,double frequency,const cha
   else { fprintf(f,"freq_mhz=%.9f\ncenter_hz=%.0f\nsample_rate=%.0f\nsamples=%zu\ndur_sec=%.9f\nvga=%u\nlna=%u\nreceiver_serial_request=%s\ncapture_start_utc=%s\nsample_format=cs8\nrf_amp=0\nantenna_power=0\nstatus=complete\n",frequency/1e6,frequency,c->sample_rate,samples,(double)samples/c->sample_rate,c->vga,c->lna,c->serial?c->serial:"default_receiver",timestamp); if(sn_atomic(f,meta_temp,meta)) error=-1; }
  }
  if(!error) error=sn_features(raw,samples>262144?262144:samples,c->sample_rate,features);
+ sn_log(error?SN_LOG_WARN:SN_LOG_INFO,"capture","end path=%s pairs=%zu elapsed_ms=%.3f status=%s error=%s",path,samples,1000*(sn_clock()-began),error?"failed":"ok",error?sn_error:"");
  free(raw); if(error) { unlink(temporary); unlink(meta_temp); unlink(path); unlink(meta); } return error;
 }
 int sn_write_features(FILE *stream,const char *path,double sr,double frequency,const SnFeatures *f) {

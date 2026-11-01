@@ -64,14 +64,17 @@ static int emit(const SnEvent *event,void *opaque) {
 }
 int sn_flush(SnDb *db,const SnConfig *config,SnStats *stats,SnSweep *sweep) {
  if(!sweep->count) { sweep->rows=0; return 0; }
+ double began=sn_clock();
  size_t before=stats->events; EmitContext context={db,stats,sweep->timestamp};
  if(sn_detect(sweep,config->margin,emit,&context)) return -1;
  double coverage=0,right=config->start;
  for(size_t i=0;i<sweep->count;++i) { double low=fmax(config->start,sweep->bins[i].low),high=fmin(config->stop,sweep->bins[i].low+sweep->bins[i].width); coverage+=fmax(0,high-fmax(low,right)); right=fmax(right,high); }
  if(sn_db_sweep(db,sweep,coverage,stats->events-before)||sn_db_commit(db)) return -1;
+ sn_log(SN_LOG_INFO,"sweep","timestamp=%s bins=%zu rows=%zu events=%zu coverage_hz=%.0f coverage_fraction=%.6f processing_ms=%.3f",sweep->timestamp,sweep->count,sweep->rows,stats->events-before,coverage,db->requested_span>0?coverage/db->requested_span:0,1000*(sn_clock()-began));
  ++stats->sweeps; sweep->count=0; sweep->rows=0; return 0;
 }
 int sn_replay(SnDb *db,const SnConfig *config,SnStats *stats) {
+ sn_log(SN_LOG_DEBUG,"replay","open path=%s",config->replay);
  FILE *input=sn_open_regular(config->replay); if(!input) return sn_fail("open replay %s: %s",config->replay,strerror(errno));
  const size_t limit=1024*1024; char *line=malloc(limit); if(!line) { fclose(input); return sn_fail("replay allocation failed"); }
  SnSweep sweep={0}; size_t line_number=0; int error=0;
@@ -80,12 +83,13 @@ int sn_replay(SnDb *db,const SnConfig *config,SnStats *stats) {
   if(!strchr(line,'\n')&&!feof(input)) { int ch; while((ch=fgetc(input))!=EOF&&ch!='\n'&&!sn_cancelled) {} ++stats->errors; if(sn_db_bad(db,line_number,line,"line exceeds 1 MiB")) { error=-1; break; } continue; }
   char *trim=line; while(isspace((unsigned char)*trim)) ++trim; if(!*trim) continue;
   SnRow row;
-  if(sn_parse_row(line,&row)) { char reason[512]; memcpy(reason,sn_error,sizeof(reason)); ++stats->errors; if(sn_db_bad(db,line_number,line,reason)) { error=-1; break; } continue; }
+  if(sn_parse_row(line,&row)) { char reason[512]; memcpy(reason,sn_error,sizeof(reason)); sn_log(SN_LOG_WARN,"replay","rejected line=%zu reason=%s",line_number,reason); ++stats->errors; if(sn_db_bad(db,line_number,line,reason)) { error=-1; break; } continue; }
   if(strcmp(row.timestamp,sweep.timestamp)) {
    if(*sweep.timestamp&&strcmp(row.timestamp,sweep.timestamp)<0) { sn_row_free(&row); error=sn_fail("timestamps moved backwards"); break; }
    if(sn_flush(db,config,stats,&sweep)) { sn_row_free(&row); error=-1; break; }
    snprintf(sweep.timestamp,sizeof(sweep.timestamp),"%s",row.timestamp);
   }
+  sn_log(SN_LOG_TRACE,"replay","line=%zu timestamp=%s low_hz=%.0f high_hz=%.0f bins=%zu",line_number,row.timestamp,row.low,row.high,row.count);
   int inserted=sn_db_raw(db,&row,line);
   if(inserted<0||(inserted&&sn_sweep_append(&sweep,&row,config->start,config->stop))) error=-1;
   if(inserted>0) ++stats->rows;

@@ -15,6 +15,7 @@ static int scalar(SnDb *db,const char *sql,sqlite3_int64 *out) {
  return result==SQLITE_ROW?0:sn_fail("SQLite scalar query failed");
 }
 int sn_db_open(SnDb *db,const char *path,int readonly) {
+ sn_log(SN_LOG_DEBUG,"database","open path=%s readonly=%d",path,readonly);
  memset(db,0,sizeof(*db));
  if(sqlite3_open_v2(path,&db->handle,readonly?SQLITE_OPEN_READONLY:SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE,NULL)!=SQLITE_OK) { sn_fail("open database: %s",db->handle?sqlite3_errmsg(db->handle):"allocation failure"); sn_db_close(db); return -1; }
  sqlite3_busy_timeout(db->handle,1000); sqlite3_int64 application=0,version=0,tables=0;
@@ -63,6 +64,7 @@ int sn_db_event(SnDb *db,const char *timestamp,const SnEvent *e) {
   group=sqlite3_last_insert_rowid(db->handle);
  }
  if(query(db,"INSERT INTO observations VALUES(%Q,%Q,%lld,%!.17g,%!.17g,%!.17g,%!.17g,%!.17g)",db->session,timestamp,group,e->low,e->high,e->peak,e->noise,e->contrast)||query(db,"UPDATE signal_groups SET observed_sweeps=observed_sweeps+1,first_seen=min(first_seen,%Q),last_seen=max(last_seen,%Q),peak_db=max(peak_db,%!.17g) WHERE id=%lld",timestamp,timestamp,e->peak,group)) return -1;
+ sn_log(SN_LOG_DEBUG,"detection","group=%lld timestamp=%s center_hz=%.0f bandwidth_hz=%.0f contrast_db=%.3f matches=%zu",(long long)group,timestamp,e->center,e->bandwidth,e->contrast,matches);
  FILE *f=db->events?db->events:stdout;
  fprintf(f,"{\"type\":\"spectrum_observation\",\"group_id\":%lld,\"timestamp\":\"%s\",\"center_hz\":%.9f,\"bandwidth_hz\":%.9f,\"peak_db\":%.9f,\"noise_db\":%.9f,\"contrast_db\":%.9f,\"device_identity\":null,\"association\":\"frequency_bandwidth_only\"}\n",(long long)group,timestamp,e->center,e->bandwidth,e->peak,e->noise,e->contrast);
  return ferror(f)?sn_fail("event output failed"):0;
