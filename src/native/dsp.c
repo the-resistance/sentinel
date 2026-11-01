@@ -65,7 +65,7 @@ static void fft(double complex *x,size_t n) {
 }
 int sn_psd(const int8_t *raw,size_t samples,size_t nfft,double *power) {
  if(nfft<64||nfft>16384||(nfft&(nfft-1))||samples<nfft) return sn_fail("invalid FFT/sample dimensions");
- double complex *frame=malloc(nfft*sizeof(*frame)); if(!frame) return sn_fail("FFT allocation failed");
+ double complex *frame=calloc(nfft,sizeof(*frame)); if(!frame) return sn_fail("FFT allocation failed");
  memset(power,0,nfft*sizeof(*power)); size_t frames=0;
  for(size_t start=0;start+nfft<=samples;start+=nfft/2) {
   for(size_t j=0;j<nfft;++j) { size_t k=start+j; double window=.5-.5*cos(2*PI*(double)j/(double)(nfft-1)); frame[j]=((double)raw[2*k]+I*(double)raw[2*k+1])/128*window; }
