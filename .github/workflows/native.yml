@@ -17,11 +17,17 @@ jobs:
       - run: make sanitize CC=${{ matrix.compiler }}
       - run: make test BACKEND=offline CC=${{ matrix.compiler }}
       - run: make package CC=${{ matrix.compiler }}
-      - run: bash tests/performance.sh runtime/ci-performance
+      - name: Verify extracted executable bundle
+        run: |
+          mkdir -p runtime/bundle-check
+          tar -xzf dist/sentinel-linux-x86_64.tar.gz -C runtime/bundle-check
+          cd runtime/bundle-check
+          sha256sum -c dist/SHA256SUMS
+          bash tests/run-suite.sh ../ci-qualification
       - uses: actions/upload-artifact@v4
         with:
           name: sentinel-linux-x86_64-${{ matrix.compiler }}
           path: |
             dist/*.tar.gz
-            runtime/ci-performance
+            runtime/ci-qualification
           retention-days: 14
