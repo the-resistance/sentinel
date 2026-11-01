@@ -30,7 +30,8 @@ int main(void) {
  assert(!symlink("/dev/null",path)); assert(sn_log_open(path)<0); assert(!unlink(path));
  struct rlimit original,limited; assert(!getrlimit(RLIMIT_FSIZE,&original)); limited=original; limited.rlim_cur=512;
  assert(signal(SIGXFSZ,SIG_IGN)!=SIG_ERR); assert(!setrlimit(RLIMIT_FSIZE,&limited));
- sn_log_init(SN_LOG_TRACE); assert(!sn_log_open(path)); sn_log(SN_LOG_TRACE,"disk_failure","%s",message);
+ sn_log_init(SN_LOG_TRACE); assert(!sn_log_open(path)); snprintf(sn_error,sizeof(sn_error),"primary error"); errno=EDOM; sn_log(SN_LOG_TRACE,"disk_failure","%s",message);
+ assert(errno==EDOM&&!strcmp(sn_error,"primary error"));
  assert(sn_log_close()<0); assert(!setrlimit(RLIMIT_FSIZE,&original)); assert(!unlink(path));
  assert(!rmdir(directory));
  puts("logging checks passed: escaping/filtering/truncation/rotation/error preservation/nonregular rejection/write failure"); return 0;

@@ -69,6 +69,7 @@ void sn_log(int level,const char *component,const char *format,...) {
   if(rotate((size_t)length)) { log_failed=1; }
   else if(fwrite(record,1,(size_t)length,log_stream)!=(size_t)length||fflush(log_stream)) log_failed=1;
  }
+ memcpy(sn_error,saved_error,sizeof(sn_error));
  errno=saved_errno;
 }
 int sn_log_close(void) {
