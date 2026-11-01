@@ -1,0 +1,7 @@
+bin/
+runtime/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.partial
+__pycache__/

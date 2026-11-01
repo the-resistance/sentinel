@@ -72,7 +72,7 @@ int sn_flush(SnDb *db,const SnConfig *config,SnStats *stats,SnSweep *sweep) {
  ++stats->sweeps; sweep->count=0; sweep->rows=0; return 0;
 }
 int sn_replay(SnDb *db,const SnConfig *config,SnStats *stats) {
- FILE *input=fopen(config->replay,"r"); if(!input) return sn_fail("open replay %s: %s",config->replay,strerror(errno));
+ FILE *input=sn_open_regular(config->replay); if(!input) return sn_fail("open replay %s: %s",config->replay,strerror(errno));
  const size_t limit=1024*1024; char *line=malloc(limit); if(!line) { fclose(input); return sn_fail("replay allocation failed"); }
  SnSweep sweep={0}; size_t line_number=0; int error=0;
  while(!sn_cancelled&&fgets(line,(int)limit,input)) {

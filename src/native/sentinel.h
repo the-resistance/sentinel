@@ -12,6 +12,7 @@
 #define SN_PATH 4096
 extern volatile sig_atomic_t sn_cancelled;
 extern char sn_error[512];
+FILE *sn_open_regular(const char *path);
 int sn_fail(const char *format,...);
 int sn_path(char *out,size_t n,const char *format,...);
 int sn_mkdirs(const char *path);

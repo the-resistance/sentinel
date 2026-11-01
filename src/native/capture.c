@@ -18,13 +18,23 @@ static int numeric(const char *text,double *value) {
  return *end?-1:0;
 }
 int sn_analyze_file(const char *path,double *sample_rate,double *frequency,SnFeatures *features) {
+ memset(features,0,sizeof(*features));
  char meta[SN_PATH]; if(suffix(meta,sizeof(meta),path,".meta")) return -1;
- FILE *sidecar=fopen(meta,"r"); double declared=-1;
+ FILE *sidecar=sn_open_regular(meta); double declared=-1;
  if(sidecar) {
-  char line[1024];
+  char line[1024]; unsigned seen=0;
   while(fgets(line,sizeof(line),sidecar)) {
    if(!strchr(line,'\n')&&!feof(sidecar)) { fclose(sidecar); return sn_fail("metadata line too long"); }
    char *equal=strchr(line,'='); if(!equal) continue; *equal++=0; double value;
+   const char *keys[]={"sample_rate","freq_mhz","samples","status","sample_format"};
+   for(unsigned k=0;k<5;++k) if(!strcmp(line,keys[k])) {
+    if(seen&(1u<<k)) { fclose(sidecar); return sn_fail("duplicate capture metadata key"); }
+    seen|=1u<<k;
+   }
+   if(!strcmp(line,"sample_format")) {
+    equal[strcspn(equal,"\r\n")]=0;
+    if(strcmp(equal,"cs8")) { fclose(sidecar); return sn_fail("capture format must be cs8"); }
+   }
    if(!strcmp(line,"sample_rate")||!strcmp(line,"freq_mhz")||!strcmp(line,"samples")) {
     if(numeric(equal,&value)) { fclose(sidecar); return sn_fail("invalid numeric capture metadata"); }
     if(!strcmp(line,"sample_rate")) *sample_rate=value;
@@ -35,7 +45,7 @@ int sn_analyze_file(const char *path,double *sample_rate,double *frequency,SnFea
   int bad=ferror(sidecar); if(fclose(sidecar)) bad=1; if(bad) return sn_fail("metadata read failed");
  } else if(errno!=ENOENT) return sn_fail("open metadata: %s",strerror(errno));
  if(!isfinite(*sample_rate)||*sample_rate<=0||*sample_rate>20e6||!isfinite(*frequency)||*frequency<1e6||*frequency>6e9) return sn_fail("valid sample_rate and freq_mhz metadata or explicit flags required");
- FILE *input=fopen(path,"rb"); if(!input) return sn_fail("open IQ %s: %s",path,strerror(errno)); struct stat st;
+ FILE *input=sn_open_regular(path); if(!input) return sn_fail("open IQ %s: %s",path,strerror(errno)); struct stat st;
  if(fstat(fileno(input),&st)||!S_ISREG(st.st_mode)||st.st_size<8192||st.st_size%2||(declared>=0&&declared!=(double)(st.st_size/2))) { fclose(input); return sn_fail("short, odd-length or metadata-mismatched CS8 capture"); }
  size_t samples=(size_t)(st.st_size/2); if(samples>262144) samples=262144;
  int8_t *raw=malloc(samples*2); if(!raw) { fclose(input); return sn_fail("IQ allocation failed"); }
@@ -76,7 +86,7 @@ int sn_analyze_directory(const char *directory,FILE *stream,SnStats *stats) {
  DIR *dir=opendir(directory); if(!dir) return sn_fail("open capture directory: %s",strerror(errno)); struct dirent *entry; int error=0; errno=0;
  while(!sn_cancelled&&(entry=readdir(dir))) {
   size_t length=strlen(entry->d_name); if(length<4||strcmp(entry->d_name+length-4,".cs8")) continue;
-  char path[SN_PATH]; SnFeatures f; double sr=0,fc=0;
+  char path[SN_PATH]; SnFeatures f={0}; double sr=0,fc=0;
   if(sn_path(path,sizeof(path),"%s/%s",directory,entry->d_name)) { error=-1; break; }
   if(sn_analyze_file(path,&sr,&fc,&f)) { ++stats->capture_errors; fprintf(stream,"{\"type\":\"capture_error\",\"file\":"); sn_json(stream,path); fprintf(stream,",\"error\":"); sn_json(stream,sn_error); fprintf(stream,"}\n"); }
   else { ++stats->captures; if(sn_write_features(stream,path,sr,fc,&f)) { error=-1; break; } }

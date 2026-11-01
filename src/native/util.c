@@ -63,3 +63,15 @@ int sn_atomic(FILE *stream,const char *temporary,const char *final) {
  if(rename(temporary,final)) { unlink(temporary); return sn_fail("rename %s: %s",final,strerror(errno)); }
  return 0;
 }
+
+FILE *sn_open_regular(const char *path) {
+ int fd=open(path,O_RDONLY|O_NONBLOCK|O_CLOEXEC);
+ if(fd<0) { sn_fail("open %s: %s",path,strerror(errno)); return NULL; }
+ struct stat st;
+ if(fstat(fd,&st)||!S_ISREG(st.st_mode)) {
+  close(fd); errno=EINVAL; sn_fail("input must be a regular file: %s",path); return NULL;
+ }
+ FILE *stream=fdopen(fd,"rb");
+ if(!stream) { int saved=errno; close(fd); errno=saved; sn_fail("open stream %s: %s",path,strerror(errno)); }
+ return stream;
+}

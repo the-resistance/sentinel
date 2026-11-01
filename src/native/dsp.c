@@ -93,7 +93,7 @@ int sn_features(const int8_t *raw,size_t samples,double sr,SnFeatures *f) {
  double average=sum/(double)samples;
  f->dc_fraction=(a_sum*a_sum+b_sum*b_sum)/((double)samples*(double)samples)/average;
  f->moment4=sum4/(double)samples/(average*average); f->crest=10*log10(peak/average);
- double power[4096]; if(sn_psd(raw,samples,4096,power)) return -1;
+ double power[4096]={0}; if(sn_psd(raw,samples,4096,power)) return -1;
  f->frames=1+(samples-4096)/2048; double total=0,log_sum=0;
  for(size_t i=0;i<4096;++i) { total+=power[i]; log_sum+=log(fmax(power[i],1e-30)); }
  f->flatness=10/log(10)*(log_sum/4096-log(total/4096)); f->obw=sn_obw(power,4096,sr/4096,.99);

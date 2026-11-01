@@ -9,7 +9,9 @@ CORE = src/native/util.c src/native/csv.c src/native/dsp.c src/native/db.c src/n
 HEADERS = src/native/sentinel.h
 ifeq ($(BACKEND),hackrf)
 BACKEND_FLAGS = -DSN_WITH_HACKRF
-BACKEND_LIBS = -lhackrf
+BACKEND_LIBS = -lhackrf -pthread
+RECEIVER_TEST = bin/test_receiver
+RECEIVER_CHECK = ./bin/test_receiver
 else ifeq ($(BACKEND),offline)
 BACKEND_FLAGS =
 BACKEND_LIBS =
@@ -30,11 +32,15 @@ bin/test_core: tests/test_core.c $(CORE) tests/fake_receiver.c $(HEADERS) FORCE
 bin/test_sentinel: $(SOURCES) tests/fake_receiver.c $(HEADERS) FORCE
 	@mkdir -p bin
 	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) -DSN_TEST_BUILD $(SOURCES) tests/fake_receiver.c $(LDFLAGS) $(SQLITE_LIBS) -lm -o $@
-test: build bin/test_core bin/test_sentinel
+bin/test_receiver: tests/test_receiver.c src/native/receiver.c src/native/util.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) -DSN_WITH_HACKRF tests/test_receiver.c src/native/receiver.c src/native/util.c $(LDFLAGS) -pthread -lm -o $@
+test: build bin/test_core bin/test_sentinel $(RECEIVER_TEST)
 	./bin/test_core
+	$(RECEIVER_CHECK)
 	bash tests/integration.sh
 sanitize:
-	$(MAKE) -f Makefile.native test BACKEND=offline CFLAGS='-O1 -g -std=c11 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='$(LDFLAGS) -fsanitize=address,undefined'
+	$(MAKE) -f Makefile.native test BACKEND=$(BACKEND) CFLAGS='-O1 -g -std=c11 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='$(LDFLAGS) -fsanitize=address,undefined'
 clean:
-	rm -f bin/sentinel bin/sentinel.out bin/sentinel_v1.0.1.out bin/test_core bin/test_sentinel
+	rm -f bin/sentinel bin/sentinel.out bin/sentinel_v1.0.1.out bin/test_core bin/test_sentinel bin/test_receiver
 FORCE:
