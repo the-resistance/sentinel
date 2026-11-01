@@ -1,0 +1,40 @@
+CC ?= cc
+CPPFLAGS ?=
+CFLAGS ?= -O2 -g -std=c11 -Wall -Wextra -Werror -Wpedantic
+LDFLAGS ?=
+SQLITE_LIBS ?= -lsqlite3
+BACKEND ?= hackrf
+SOURCES = src/main.c src/native/util.c src/native/csv.c src/native/dsp.c src/native/db.c src/native/capture.c src/native/live.c
+CORE = src/native/util.c src/native/csv.c src/native/dsp.c src/native/db.c src/native/capture.c
+HEADERS = src/native/sentinel.h
+ifeq ($(BACKEND),hackrf)
+BACKEND_FLAGS = -DSN_WITH_HACKRF
+BACKEND_LIBS = -lhackrf
+else ifeq ($(BACKEND),offline)
+BACKEND_FLAGS =
+BACKEND_LIBS =
+else
+$(error BACKEND must be hackrf or offline)
+endif
+.PHONY: all build test sanitize clean FORCE
+all: build
+build: bin/sentinel bin/sentinel.out bin/sentinel_v1.0.1.out
+bin/sentinel: $(SOURCES) src/native/receiver.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) $(BACKEND_FLAGS) $(SOURCES) src/native/receiver.c $(LDFLAGS) $(SQLITE_LIBS) $(BACKEND_LIBS) -lm -o $@
+bin/sentinel.out bin/sentinel_v1.0.1.out: bin/sentinel
+	cp bin/sentinel $@
+bin/test_core: tests/test_core.c $(CORE) tests/fake_receiver.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) tests/test_core.c $(CORE) tests/fake_receiver.c $(LDFLAGS) $(SQLITE_LIBS) -lm -o $@
+bin/test_sentinel: $(SOURCES) tests/fake_receiver.c $(HEADERS) FORCE
+	@mkdir -p bin
+	$(CC) $(CPPFLAGS) -Isrc/native $(CFLAGS) -DSN_TEST_BUILD $(SOURCES) tests/fake_receiver.c $(LDFLAGS) $(SQLITE_LIBS) -lm -o $@
+test: build bin/test_core bin/test_sentinel
+	./bin/test_core
+	bash tests/integration.sh
+sanitize:
+	$(MAKE) -f Makefile.native test BACKEND=offline CFLAGS='-O1 -g -std=c11 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer' LDFLAGS='$(LDFLAGS) -fsanitize=address,undefined'
+clean:
+	rm -f bin/sentinel bin/sentinel.out bin/sentinel_v1.0.1.out bin/test_core bin/test_sentinel
+FORCE:
